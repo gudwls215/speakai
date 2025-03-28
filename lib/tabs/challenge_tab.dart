@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ChallengeTab extends StatelessWidget {
-  const ChallengeTab({Key? key}) : super(key: key);
+  const ChallengeTab({super.key});
 
   @override
   Widget build(BuildContext context) {

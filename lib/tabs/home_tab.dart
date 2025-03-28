@@ -39,7 +39,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            CircleAvatar(backgroundImage: AssetImage('assets/avatar.png')),
+            CircleAvatar(backgroundImage: AssetImage('avatar.png')),
             Icon(Icons.notifications, color: Colors.white),
           ],
         ),
