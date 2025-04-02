@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:speech_to_text/speech_to_text.dart';
+import 'package:speakai/services/speech_to_text_handler.dart';
 import 'package:speakai/services/sse_service.dart';
 import 'package:speakai/widgets/chat_message.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:speakai/providers/chat_provider.dart';
-import 'package:provider/provider.dart';
 
 class ChatBotInput extends StatefulWidget {
   @override
@@ -12,21 +12,18 @@ class ChatBotInput extends StatefulWidget {
 }
 
 class _ChatBotInputState extends State<ChatBotInput> {
-  late stt.SpeechToText _speech;
+  final SpeechToTextHandler _speechHandler = SpeechToTextHandler();
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   ChatProvider _chatProvider = ChatProvider();
 
-  // ChatProvider _chatProvider = Provider.of<ChatProvider>(context, listen: false);
-
   String _recognizedText = "";
-  bool _isListening = false;
-  bool _isLoading = false; // 로딩 상태 추가
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
+    _initSpeech();
 
     // 메시지 변경 시 자동 스크롤
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -37,6 +34,19 @@ class _ChatBotInputState extends State<ChatBotInput> {
       text: '안녕하세요! 무엇을 도와드릴까요?',
       isUser: false,
     ));
+  }
+
+  void _initSpeech() async {
+    await _speechHandler.initialize(
+      onStatus: (status) {
+        print("onStatus: $status");
+        setState(() {});
+      },
+      onError: (error) {
+        print("onError: $error");
+        setState(() {});
+      },
+    );
   }
 
   void _sendMessage() async {
@@ -111,53 +121,26 @@ class _ChatBotInputState extends State<ChatBotInput> {
     }
   }
 
-  void _startListening() async {
-    if (_isListening || _speech.isListening) {
+  void _startListening() {
+    if (_speechHandler.isListening.value) {
       _stopListening();
-      //print("이미 음성 인식이 실행 중입니다.");
       return;
     }
 
-    bool available = await _speech.initialize(onStatus: (status) {
-      print("onStatus: $status");
-      print("_isListening: $_isListening");
+    _speechHandler.startListening((result) {
       setState(() {
-        _isListening = (status == "listening");
-      });
-    }, onError: (error) {
-      print("onError: $error");
-      setState(() {
-        _isListening = false;
+        _recognizedText = result.recognizedWords;
+        _textController.text = _recognizedText;
+        _textController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _textController.text.length),
+        );
       });
     });
-
-    print("available: $available");
-    if (available) {
-      _speech.listen(
-        onResult: (result) {
-          print("result: $result");
-          setState(() {
-            _recognizedText = result.recognizedWords;
-            _textController.text = _recognizedText; // 👈 자동으로 입력값 업데이트
-            _textController.selection = TextSelection.fromPosition(
-              TextPosition(offset: _textController.text.length),
-            );
-          });
-        },
-      );
-      setState(() {
-        _isListening = true;
-      });
-    } else {
-      print("음성 인식을 사용할 수 없습니다.");
-    }
   }
 
   void _stopListening() async {
-    if (_isListening) {
-      await _speech.stop();
-      setState(() => _isListening = false);
-    }
+    await _speechHandler.stopListening();
+    setState(() {});
   }
 
   // 모바일 환경용 기존 SSE 메서드 (수정 필요)
@@ -364,12 +347,12 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                 children: [
                                   Row(
                                     children: [
-                                      _buildMessageReco("게임하기기",
-                                          "10고개 게임을 해볼까요?"),
-                                      _buildMessageReco("단어모음집",
-                                          "단어 모음집을 만들어볼까요?"),
-                                      _buildMessageReco("단어연습",
-                                          "어려운 단어 연습을 하고싶어"),
+                                      _buildMessageReco(
+                                          "게임하기기", "10고개 게임을 해볼까요?"),
+                                      _buildMessageReco(
+                                          "단어모음집", "단어 모음집을 만들어볼까요?"),
+                                      _buildMessageReco(
+                                          "단어연습", "어려운 단어 연습을 하고싶어"),
                                     ],
                                   ),
                                 ],
@@ -389,22 +372,26 @@ class _ChatBotInputState extends State<ChatBotInput> {
                               ),
                               child: Row(
                                 children: [
-                                  IconButton(
-                                    icon: Icon(
-                                      _isListening ? Icons.mic : Icons.mic_off,
-                                      color: _isListening
-                                          ? Colors.red
-                                          : Colors.grey,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        // 👈 Modal 내부에서 상태 변경 가능
-                                        if (_isListening) {
-                                          _stopListening();
-                                        } else {
-                                          _startListening();
-                                        }
-                                      });
+                                  ValueListenableBuilder<bool>(
+                                    valueListenable: _speechHandler.isListening,
+                                    builder: (context, isListening, child) {
+                                      return IconButton(
+                                        icon: Icon(
+                                          isListening
+                                              ? Icons.mic
+                                              : Icons.mic_off,
+                                          color: isListening
+                                              ? Colors.red
+                                              : Colors.grey,
+                                        ),
+                                        onPressed: () {
+                                          if (isListening) {
+                                            _stopListening();
+                                          } else {
+                                            _startListening();
+                                          }
+                                        },
+                                      );
                                     },
                                   ),
                                   Expanded(
