@@ -40,6 +40,7 @@ class ChatMessage extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        SizedBox(width: 8), 
         CircleAvatar(
           backgroundColor: Colors.blue,
           child: Icon(Icons.smart_toy, color: Colors.white),

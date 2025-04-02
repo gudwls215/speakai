@@ -13,9 +13,6 @@ class HomeTab extends StatefulWidget {
 
 class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  stt.SpeechToText _speech = stt.SpeechToText();
-  bool _isListening = false;
-  String _text = "음성을 입력하세요...";
 
   @override
   void initState() {

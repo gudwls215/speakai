@@ -3,7 +3,8 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:speakai/services/sse_service.dart';
 import 'package:speakai/widgets/chat_message.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-
+import 'package:speakai/providers/chat_provider.dart';
+import 'package:provider/provider.dart';
 
 class ChatBotInput extends StatefulWidget {
   @override
@@ -14,7 +15,10 @@ class _ChatBotInputState extends State<ChatBotInput> {
   late stt.SpeechToText _speech;
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  List<ChatMessage> _messages = [];
+  ChatProvider _chatProvider = ChatProvider();
+
+  // ChatProvider _chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
   String _recognizedText = "";
   bool _isListening = false;
   bool _isLoading = false; // 로딩 상태 추가
@@ -28,16 +32,11 @@ class _ChatBotInputState extends State<ChatBotInput> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToBottom();
     });
-  }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+    _chatProvider.add(ChatMessage(
+      text: '안녕하세요! 무엇을 도와드릴까요?',
+      isUser: false,
+    ));
   }
 
   void _sendMessage() async {
@@ -45,7 +44,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
     if (message.isEmpty) return;
 
     setState(() {
-      _messages.add(ChatMessage(
+      _chatProvider.add(ChatMessage(
         text: message,
         isUser: true,
       ));
@@ -53,38 +52,63 @@ class _ChatBotInputState extends State<ChatBotInput> {
       _isLoading = true;
 
       // 봇 메시지 초기 생성
-      _messages.add(ChatMessage(
+      _chatProvider.add(ChatMessage(
         text: '', // 빈 텍스트로 초기 생성
         isUser: false,
       ));
     });
 
-    SSEHandler.fetchBotResponseWeb(message, (botMessageChunk) {
-      print("botMessageChunk :" + botMessageChunk);
-      setState(() {
-        // 마지막에 추가된 봇 메시지 업데이트
-        if (_messages.isNotEmpty && !_messages.last.isUser) {
-          _messages[_messages.length - 1] = ChatMessage(
-            text: _messages.last.text + botMessageChunk,
-            isUser: false,
-          );
-        }
-      });
-    }, (error) {
-      setState(() {
-        _isLoading = false;
-        //_messages.removeLast(); // 빈 봇 메시지 제거
-        // _messages.add(ChatMessage(
-        //   text: '메시지 전송 중 오류가 발생했습니다.',
-        //   isUser: false,
-        //   isError: true,
-        // ));
-      });
-    }, onDone: () {
-      setState(() {
-        _isLoading = false;
-      });
+    // 스크롤을 맨 아래로 이동
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
     });
+
+    SSEHandler.fetchBotResponseWeb(message, (botMessageChunk) {
+      print("botMessageChunk: " + botMessageChunk);
+
+      // UI 업데이트는 반드시 main 스레드에서 처리
+      if (mounted) {
+        setState(() {
+          // 마지막에 추가된 봇 메시지 업데이트
+          if (_chatProvider.isNotEmpty && !_chatProvider.isLastMessageUser) {
+            _chatProvider.messageUpdate(botMessageChunk);
+
+            // 각 메시지 청크마다 스크롤 업데이트
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _scrollToBottom();
+            });
+          }
+        });
+      }
+    }, (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }, onDone: () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        // 메시지 완료 후 스크롤 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+      }
+    });
+  }
+
+  // 스크롤을 맨 아래로 이동시키는 함수
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _startListening() async {
@@ -136,95 +160,41 @@ class _ChatBotInputState extends State<ChatBotInput> {
     }
   }
 
-  // void _sendMessage() {
-  //   final message = _textController.text; // 메시지 변수로 저장
-  //   print("메시지 전송: $_textController.text"); // 실제 전송 로직 추가 가능
-  //   if (_textController.text.isEmpty) {
-  //     return;
-  //   }
-
-  //   setState(() {
-  //     _messages.add(_buildUserMessage(_textController.text)); // 사용자 메시지 추가
-  //     _messages.add(_buildBotMessage(_textController.text));
-  //   });
-
-  //   // 웹 환경에서의 SSE 요청
-  //   if (kIsWeb) {
-  //     SSEHandler.fetchBotResponseWeb(_textController.text, (botMessage) {
-  //       print("챗봇 응답: $botMessage");
-  //       setState(() {
-  //         _botResponse.add(botMessage); // 챗봇 메시지 추가
-  //       });
-  //     }, (error) {
-  //       // 오류 발생 시 폴백 요청 시도
-  //       SSEHandler.fallbackHttpRequest(message, (botMessage) {
-  //         setState(() {
-  //           _botResponse.add(botMessage);
-  //         });
-  //       }, (fallbackError) {
-  //         // 최종 오류 처리
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           SnackBar(content: Text('메시지 전송 실패: $fallbackError')),
-  //         );
-  //       });
-  //     });
-  //   } else {
-  //     // 모바일 환경에서는 기존 SSE 로직 사용
-  //     _fetchBotResponseMobile(message);
-  //   }
-
-  //   _textController.clear(); // 입력 필드 초기화
-  //   _recognizedText = ""; // 변수 초기화
-  // }
-
   // 모바일 환경용 기존 SSE 메서드 (수정 필요)
   void _fetchBotResponseMobile(String message) {
     // 기존 SSE 클라이언트 로직 그대로 사용
   }
 
-  Widget _buildUserMessage(String title) {
-    return Align(
-      alignment: Alignment.centerRight,
+  Widget _buildMessageReco(String title, String text) {
+    return Expanded(
       child: Container(
-        margin: EdgeInsets.only(bottom: 16.0),
-        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        margin: EdgeInsets.all(4.0),
+        padding: EdgeInsets.symmetric(vertical: 12.0),
         decoration: BoxDecoration(
-          color: Colors.blue.shade800,
-          borderRadius: BorderRadius.circular(20.0),
+          color: Colors.grey.shade900,
+          borderRadius: BorderRadius.circular(16.0),
         ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBotMessage(String title) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          backgroundColor: Colors.blue,
-          child: Icon(Icons.smart_toy, color: Colors.white),
-        ),
-        SizedBox(width: 8),
-        Expanded(
-          child: Container(
-            margin: EdgeInsets.only(bottom: 16.0),
-            child: Text(
+        child: Column(
+          children: [
+            Text(
               title,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 16,
               ),
+              textAlign: TextAlign.center,
             ),
-          ),
+            Text(
+              text,
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -348,16 +318,17 @@ class _ChatBotInputState extends State<ChatBotInput> {
                               child: ListView.builder(
                                 // 컨트롤러 추가
                                 controller: _scrollController,
-                                itemCount:
-                                    _messages.length + (_isLoading ? 1 : 0),
+                                itemCount: _chatProvider.getLength +
+                                    (_isLoading ? 1 : 0),
                                 itemBuilder: (context, index) {
                                   // 기존 로직 유지
-                                  if (index == _messages.length && _isLoading) {
+                                  if (index == _chatProvider.getLength &&
+                                      _isLoading) {
                                     return _buildLoadingIndicator();
                                   }
 
-                                  if (index < _messages.length) {
-                                    return _messages[index];
+                                  if (index < _chatProvider.getLength) {
+                                    return _chatProvider.getMessage(index);
                                   }
 
                                   return SizedBox.shrink();
@@ -393,102 +364,12 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                 children: [
                                   Row(
                                     children: [
-                                      Expanded(
-                                        child: Container(
-                                          margin: EdgeInsets.all(4.0),
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 12.0),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade900,
-                                            borderRadius:
-                                                BorderRadius.circular(16.0),
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              Text(
-                                                '대화 시작하기',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                              Text(
-                                                '세상을 바꿔봅시다',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 12,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Container(
-                                          margin: EdgeInsets.all(4.0),
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 12.0),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade900,
-                                            borderRadius:
-                                                BorderRadius.circular(16.0),
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              Text(
-                                                '대화 시작하기',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                              Text(
-                                                '어떤 직업을 갖고 싶나요?',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 12,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Container(
-                                          margin: EdgeInsets.all(4.0),
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 12.0),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade900,
-                                            borderRadius:
-                                                BorderRadius.circular(16.0),
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              Text(
-                                                '대화 시작하기',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 16,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                              Text(
-                                                '어떤 직업을 갖고 싶나요?',
-                                                style: TextStyle(
-                                                  color: Colors.grey,
-                                                  fontSize: 12,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                      _buildMessageReco("게임하기기",
+                                          "10고개 게임을 해볼까요?"),
+                                      _buildMessageReco("단어모음집",
+                                          "단어 모음집을 만들어볼까요?"),
+                                      _buildMessageReco("단어연습",
+                                          "어려운 단어 연습을 하고싶어"),
                                     ],
                                   ),
                                 ],
