@@ -67,30 +67,31 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.black,
+        unselectedItemColor: Colors.grey,
+        selectedItemColor: Colors.blue,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home, color: Colors.grey),
-            label: 'Home',
+            label: '홈',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat, color: Colors.grey),
-            label: 'Free Talk',
+            icon: Icon(Icons.people, color: Colors.grey),
+            label: '프리톡',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.rate_review, color: Colors.grey),
-            label: 'Review',
+            icon: Icon(Icons.bolt, color: Colors.grey),
+            label: '리뷰',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.flag, color: Colors.grey),
-            label: 'Challenge',
+            icon: Icon(Icons.emoji_events, color: Colors.grey),
+            label: '챌린지',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person, color: Colors.grey),
-            label: 'Profile',
+            label: '프로필',
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.grey,
         onTap: _onItemTapped,
       ),
     );
