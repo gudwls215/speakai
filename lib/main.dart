@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:speakai/providers/chat_provider.dart';
+import 'package:speakai/providers/free_talk_provider.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/free_talk_tab.dart';
 import 'tabs/review_tab.dart';
@@ -7,9 +8,16 @@ import 'tabs/challenge_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'package:provider/provider.dart';
 
-
 void main() {
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => FreeTalkProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -18,17 +26,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: ChangeNotifierProvider(  // ChangeNotifierProvider를 통해 변화에 대해 구독(하나만 구독 가능)
-        create: (BuildContext context) => ChatProvider(), // count_provider.dart
-        child: const MyHomePage(title: 'Flutter Demo Home Page') // home.dart // child 하위에 모든 것들은 CountProvider에 접근 할 수 있다.
-     )
-     
-    );
+        title: 'SpeakAI',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: const MyHomePage(title: 'SpeakAI'));
   }
 }
 

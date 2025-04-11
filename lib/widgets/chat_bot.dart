@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speakai/services/speech_to_text_handler.dart';
 import 'package:speakai/services/sse_service.dart';
 import 'package:speakai/widgets/chat_message.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:speakai/providers/chat_provider.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ChatBotInput extends StatefulWidget {
   @override
@@ -19,6 +20,53 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
   String _recognizedText = "";
   bool _isLoading = false;
+
+  Future<void> fetchIntent({
+    required String userId,
+    required String userMessage,
+  }) async {
+    final Uri uri =
+        Uri.parse("http://192.168.0.147:8000/intent").replace(queryParameters: {
+      'user_id': userId,
+      'user_message': userMessage,
+      'stream': 'false',
+    });
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final apiResponse = data['response'];
+        final intent = data['intent'];
+        final gameType = data['game_type'];
+
+        setState(() {
+          // 마지막에 추가된 봇 메시지 업데이트
+          if (_chatProvider.isNotEmpty && !_chatProvider.isLastMessageUser) {
+            _chatProvider.messageUpdate(apiResponse);
+
+            // 각 메시지 청크마다 스크롤 업데이트
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _scrollToBottom();
+            });
+          }
+        });
+
+        // 의도와 게임 타입을 업데이트
+        _chatProvider.intentUpdate(intent);
+        _chatProvider.gameTypeUpdate(gameType);
+
+        print('Response: $apiResponse');
+        print('Intent: $intent');
+        print('Game Type: $gameType');
+      } else {
+        print('API 호출 실패: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('예외 발생: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -51,6 +99,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
   void _sendMessage() async {
     final message = _textController.text;
+
     if (message.isEmpty) return;
 
     setState(() {
@@ -73,8 +122,19 @@ class _ChatBotInputState extends State<ChatBotInput> {
       _scrollToBottom();
     });
 
-    SSEHandler.fetchBotResponseWeb(message, (botMessageChunk) {
-      print("botMessageChunk: " + botMessageChunk);
+    // 의도 분석 모델 붙이기
+    await fetchIntent(
+      userId: "ttm",
+      userMessage: message,
+    );
+
+    Map<String, String> parameters = {
+      'user_message': message,
+      'user_id': _chatProvider.getUserId,
+      'stream': 'true',
+    };
+
+    SSEHandler.fetchBotResponseWeb(parameters,"chat", (botMessageChunk) {
 
       // UI 업데이트는 반드시 main 스레드에서 처리
       if (mounted) {
@@ -148,8 +208,9 @@ class _ChatBotInputState extends State<ChatBotInput> {
     // 기존 SSE 클라이언트 로직 그대로 사용
   }
 
-  Widget _buildMessageReco(String title, String text) {
-    return Expanded(
+  Widget _buildQuickReply(String title, String text) {
+    return SizedBox(
+      width: 200,
       child: Container(
         margin: EdgeInsets.all(4.0),
         padding: EdgeInsets.symmetric(vertical: 12.0),
@@ -298,23 +359,26 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
                             // 채팅 메시지 리스트
                             Expanded(
-                              child: ListView.builder(
-                                // 컨트롤러 추가
-                                controller: _scrollController,
-                                itemCount: _chatProvider.getLength +
-                                    (_isLoading ? 1 : 0),
-                                itemBuilder: (context, index) {
-                                  // 기존 로직 유지
-                                  if (index == _chatProvider.getLength &&
-                                      _isLoading) {
-                                    return _buildLoadingIndicator();
-                                  }
+                              child: ValueListenableBuilder<List<ChatMessage>>(
+                                valueListenable: _chatProvider.messages,
+                                builder: (context, messages, child) {
+                                  return ListView.builder(
+                                    controller: _scrollController,
+                                    itemCount:
+                                        messages.length + (_isLoading ? 1 : 0),
+                                    itemBuilder: (context, index) {
+                                      if (index == messages.length &&
+                                          _isLoading) {
+                                        return _buildLoadingIndicator();
+                                      }
 
-                                  if (index < _chatProvider.getLength) {
-                                    return _chatProvider.getMessage(index);
-                                  }
+                                      if (index < messages.length) {
+                                        return messages[index];
+                                      }
 
-                                  return SizedBox.shrink();
+                                      return SizedBox.shrink();
+                                    },
+                                  );
                                 },
                               ),
                             ),
@@ -343,22 +407,21 @@ class _ChatBotInputState extends State<ChatBotInput> {
                             Container(
                               padding: EdgeInsets.symmetric(
                                   horizontal: 8.0, vertical: 12.0),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      _buildMessageReco(
-                                          "게임하기기", "10고개 게임을 해볼까요?"),
-                                      _buildMessageReco(
-                                          "단어모음집", "단어 모음집을 만들어볼까요?"),
-                                      _buildMessageReco(
-                                          "단어연습", "어려운 단어 연습을 하고싶어"),
-                                    ],
-                                  ),
-                                ],
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal, // 수평 스크롤 활성화
+                                child: Row(
+                                  mainAxisSize:
+                                      MainAxisSize.min, // Row의 크기를 내용물에 맞춤
+                                  children: [
+                                    _buildQuickReply("게임하기", "10고개 게임을 해볼까요?"),
+                                    _buildQuickReply(
+                                        "단어모음집", "단어 모음집을 만들어볼까요?"),
+                                    _buildQuickReply("단어연습", "어려운 단어 연습을 하고싶어"),
+                                    _buildQuickReply("퀴즈", "퀴즈를 풀어볼까요?"),
+                                  ],
+                                ),
                               ),
                             ),
-
                             // Message input field
                             Container(
                               padding: EdgeInsets.symmetric(

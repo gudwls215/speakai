@@ -5,12 +5,24 @@ import 'web_sse_impl.dart';
 
 class SSEHandler {
   static void fetchBotResponseWeb(
-    String message,
+    Map<String, String> parameters, 
+    String path,
     Function(String) onMessageReceived,
     Function(dynamic) onErrorHandler, {
     VoidCallback? onDone,
   }) {
-    final targetUrl = 'http://192.168.0.147:8001/chat?user_message=$message';
+    //final targetUrl = 'http://192.168.0.147:8001/chat?user_message=$message';
+        // URL 생성
+    final Uri targetUri = Uri(
+      scheme: 'http',
+      host: '192.168.0.147',
+      port: 8000,
+      path: path,
+      queryParameters: parameters, // 딕셔너리로 쿼리 파라미터 추가
+    );
+
+    final targetUrl = targetUri.toString();
+
     
     if (kIsWeb) {
       print("web sse start =="+targetUrl);
@@ -24,6 +36,7 @@ class SSEHandler {
     }
   }
 }
+
 
 // 모바일 환경과 웹 환경의 구현을 분리하기 위한 인터페이스
 abstract class SSEImplementation {
