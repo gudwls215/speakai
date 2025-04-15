@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:speakai/providers/free_talk_provider.dart';
+import 'package:speakai/services/speech_to_text_handler.dart';
 import 'package:speakai/services/sse_service.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class FreeTalkMessage extends StatefulWidget {
   final String title;
@@ -31,19 +33,22 @@ class FreeTalkMessage extends StatefulWidget {
 
 class _FreeTalkMessageState extends State<FreeTalkMessage> {
   final TextEditingController _textController = TextEditingController();
+  final SpeechToTextHandler _speechHandler = SpeechToTextHandler();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
   FreeTalkProvider _freeTalkProvider = FreeTalkProvider();
   bool _isLoading = false;
+  String _recognizedText = "";
 
   @override
   void initState() {
     super.initState();
-  
+    _initSpeech();
 
     _freeTalkProvider = Provider.of<FreeTalkProvider>(context, listen: false);
 
     _freeTalkProvider.postId.value = widget.postId;
-    
+
     if (_freeTalkProvider.getMessagesNotifier(widget.postId).value.isEmpty) {
       _freeTalkProvider.add(
         TalkMessage(
@@ -56,7 +61,62 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
     }
   }
 
-  
+  void _initSpeech() async {
+    await _speechHandler.initialize(
+      onStatus: (status) {
+        print("onStatus: $status");
+        setState(() {});
+      },
+      onError: (dynamic error) {
+        print("Error: ${error.toString()}");
+        setState(() {});
+      },
+    );
+
+    if (!_speechHandler.isListening.value) {
+      _showMicPermissionDialog();
+    }
+  }
+
+  void _showMicPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('마이크 권한 필요'),
+        content: Text('음성 인식을 사용하려면 브라우저에서 마이크 권한을 허용해주세요. '
+            '주소창 옆 🔒 아이콘을 클릭해 마이크 권한을 허용할 수 있어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startListening() {
+    if (_speechHandler.isListening.value) {
+      _stopListening();
+      return;
+    }
+
+    _speechHandler.startListening((result) {
+      setState(() {
+        _recognizedText = result.recognizedWords;
+        _textController.text = _recognizedText;
+        _textController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _textController.text.length),
+        );
+      });
+    });
+  }
+
+  void _stopListening() async {
+    await _speechHandler.stopListening();
+    setState(() {});
+  }
+
   final List<TalkMessage> _messages = [
     const TalkMessage(
       isUser: false,
@@ -97,7 +157,6 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
   //       final data = json.decode(response.body);
   //       final fixedText = data['response'];
   //       final comment_ko = data['comment_ko'];
-
 
   //       print('fixedText: $fixedText');
   //       print('commentKo: $comment_ko');
@@ -140,13 +199,15 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
       _scrollToBottom();
     });
 
+    _focusNode.requestFocus();
+
     Map<String, String> parameters = {
       'user_message': message,
       'post_id': widget.postId,
       'user_role': widget.userRole,
       'ai_role': widget.aiRole,
       'situation': widget.description,
-      'user_id': _freeTalkProvider.getUserId,
+      'user_id': "ttm",
     };
 
     SSEHandler.fetchBotResponseWeb(parameters, "freetalk", (botMessageChunk) {
@@ -318,6 +379,7 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
                           children: [
                             Expanded(
                               child: TextField(
+                                focusNode: _focusNode,
                                 onSubmitted: (value) {
                                   if (value.trim().isNotEmpty) {
                                     _sendMessage();
@@ -332,9 +394,24 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
                                 ),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.mic, color: Colors.white),
-                              onPressed: () {},
+                            ValueListenableBuilder<bool>(
+                              valueListenable: _speechHandler.isListening,
+                              builder: (context, isListening, child) {
+                                return IconButton(
+                                  icon: Icon(
+                                    isListening ? Icons.mic : Icons.mic_off,
+                                    color:
+                                        isListening ? Colors.red : Colors.grey,
+                                  ),
+                                  onPressed: () {
+                                    if (isListening) {
+                                      _stopListening();
+                                    } else {
+                                      _startListening();
+                                    }
+                                  },
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -370,7 +447,6 @@ class TalkMessage extends StatefulWidget {
     required this.postId,
     this.commentKo = "",
     this.fixedText = "",
-    
   }) : super(key: key);
 
   @override
@@ -379,48 +455,101 @@ class TalkMessage extends StatefulWidget {
 
 class _TalkMessageState extends State<TalkMessage> {
   bool _showCommentKo = false;
+  bool _showTranslate = false;
   bool _isLoadingFeedback = false;
+  bool _isLoadingTranslate = false;
   String _fixedTextFromAPI = "";
   String _commentKoFromAPI = "";
+  String _translateTextFromAPI = "";
+
+  final FlutterTts flutterTts = FlutterTts();
+
+  Future<void> _speak(String text) async {
+    await flutterTts.setLanguage("en-US"); // 언어 설정
+    await flutterTts.setPitch(1.0); // 음 높이
+    await flutterTts.setSpeechRate(0.8); // 속도
+    await flutterTts.speak(text);
+  }
+
+  Future<void> _fetchTranslation() async {
+    if (_isLoadingTranslate) return;
+
+    setState(() {
+      _isLoadingTranslate = true;
+    });
+
+    final Uri uri = Uri.parse("http://192.168.0.147:8000/translate")
+        .replace(queryParameters: {
+      'text': widget.text,
+    });
+
+    try {
+      final response = await http.get(uri);
+
+      print('응답 본문: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _translateTextFromAPI = data['translation']; 
+          _showTranslate = true;
+          _isLoadingTranslate = false;
+        });
+
+        print('Translation: $_translateTextFromAPI');
+      } else {
+        print('API 호출 실패: ${response.statusCode}');
+        setState(() {
+          _isLoadingTranslate = false;
+        });
+      }
+    } catch (e) {
+      print('예외 발생: $e');
+      setState(() {
+        _isLoadingTranslate = false;
+      });
+    }
+  }
 
   Future<void> _fetchFeedback() async {
     if (_isLoadingFeedback) return;
-    
+
     setState(() {
       _isLoadingFeedback = true;
     });
 
     print(_commentKoFromAPI);
-    print(_fixedTextFromAPI); 
-    
+    print(_fixedTextFromAPI);
 
     // Get the provider to access previous messages
-    final freeTalkProvider = Provider.of<FreeTalkProvider>(context, listen: false);
-    final messages = freeTalkProvider.getMessagesNotifier(freeTalkProvider.getCurrentPostId()).value;
-    
-    print("freeTalkProvider.getCurrentPostId(): "+freeTalkProvider.getCurrentPostId());
-    print("messages: "+messages.toString());
-    print("widget.text: "+widget.text);
-    print("widget.isUser: "+widget.isUser.toString());  
+    final freeTalkProvider =
+        Provider.of<FreeTalkProvider>(context, listen: false);
+    final messages = freeTalkProvider
+        .getMessagesNotifier(freeTalkProvider.getCurrentPostId())
+        .value;
 
+    print("freeTalkProvider.getCurrentPostId(): " +
+        freeTalkProvider.getCurrentPostId());
+    print("messages: " + messages.toString());
+    print("widget.text: " + widget.text);
+    print("widget.isUser: " + widget.isUser.toString());
 
     // Find the current message index
-    final currentIndex = messages.indexWhere((msg) => 
-        msg.isUser == widget.isUser && 
-        msg.text == widget.text);
+    final currentIndex = messages.indexWhere(
+        (msg) => msg.isUser == widget.isUser && msg.text == widget.text);
 
-    print("currentIndex: "+currentIndex.toString());
-    
+    print("currentIndex: " + currentIndex.toString());
+
     if (currentIndex <= 0) {
       setState(() {
         _isLoadingFeedback = false;
       });
       return; // Can't get previous message or not found
     }
-    
+
     // Get previous bot message
     final previousBotMessage = messages[currentIndex - 1].text;
-    
+
     final Uri uri = Uri.parse("http://192.168.0.147:8000/feedback")
         .replace(queryParameters: {
       'user_id': "ttm",
@@ -440,7 +569,7 @@ class _TalkMessageState extends State<TalkMessage> {
           _showCommentKo = true;
           _isLoadingFeedback = false;
         });
-        
+
         print('fixedText: $_fixedTextFromAPI');
         print('commentKo: $_commentKoFromAPI');
       } else {
@@ -474,7 +603,7 @@ class _TalkMessageState extends State<TalkMessage> {
                 Align(
                   alignment: Alignment.center,
                   child: IconButton(
-                    icon: _isLoadingFeedback 
+                    icon: _isLoadingFeedback
                         ? const SizedBox(
                             width: 15,
                             height: 15,
@@ -487,7 +616,8 @@ class _TalkMessageState extends State<TalkMessage> {
                             color: Color.fromARGB(179, 59, 197, 221), size: 15),
                     onPressed: () {
                       if (!_isLoadingFeedback) {
-                        if (_fixedTextFromAPI.isEmpty && _commentKoFromAPI.isEmpty) {
+                        if (_fixedTextFromAPI.isEmpty &&
+                            _commentKoFromAPI.isEmpty) {
                           _fetchFeedback();
                         } else {
                           setState(() {
@@ -522,30 +652,60 @@ class _TalkMessageState extends State<TalkMessage> {
                           fontSize: 15,
                         ),
                       ),
-                      if (_showCommentKo) ...[
+                      if (_showTranslate) ...[
                         const SizedBox(height: 8),
-                        if (_fixedTextFromAPI.isNotEmpty || widget.fixedText.isNotEmpty) ...[
+                        if (_translateTextFromAPI.isNotEmpty) ...[
                           const Divider(
                             color: Colors.grey,
                             thickness: 1,
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            _fixedTextFromAPI.isNotEmpty ? _fixedTextFromAPI : widget.fixedText,
-                            style: const TextStyle(
-                              color: Colors.amber,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
+                          IntrinsicWidth(
+                            child: Text(
+                              _translateTextFromAPI,
+                              style: TextStyle(
+                                color: Colors.teal[200],
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                      if (_showCommentKo) ...[
+                        const SizedBox(height: 8),
+                        if (_fixedTextFromAPI.isNotEmpty ||
+                            widget.fixedText.isNotEmpty) ...[
+                          const Divider(
+                            color: Colors.grey,
+                            thickness: 1,
+                          ),
+                          const SizedBox(height: 4),
+                          IntrinsicWidth(
+                            child: Text(
+                              _fixedTextFromAPI.isNotEmpty
+                                  ? _fixedTextFromAPI
+                                  : widget.fixedText,
+                              style: const TextStyle(
+                                color: Colors.amber,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
                         const SizedBox(height: 8),
-                        if (_commentKoFromAPI.isNotEmpty || widget.commentKo.isNotEmpty)
-                          Text(
-                            _commentKoFromAPI.isNotEmpty ? _commentKoFromAPI : widget.commentKo,
-                            style: TextStyle(
-                              color: Colors.teal[200],
-                              fontSize: 14,
+                        if (_commentKoFromAPI.isNotEmpty ||
+                            widget.commentKo.isNotEmpty)
+                          IntrinsicWidth(
+                            child: Text(
+                              _commentKoFromAPI.isNotEmpty
+                                  ? _commentKoFromAPI
+                                  : widget.commentKo,
+                              style: TextStyle(
+                                color: Colors.teal[200],
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                       ],
@@ -563,15 +723,25 @@ class _TalkMessageState extends State<TalkMessage> {
                   IconButton(
                     icon: const Icon(Icons.volume_up,
                         color: Colors.white70, size: 20),
-                    onPressed: () {},
+                    onPressed: () => _speak(widget.text),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
                   const SizedBox(width: 12),
                   IconButton(
-                    icon: const Icon(Icons.language,
+                    icon: const Icon(Icons.translate,
                         color: Colors.white70, size: 20),
-                    onPressed: () {},
+                    onPressed: () {
+                      if (!_isLoadingTranslate) {
+                        if (_translateTextFromAPI.isEmpty) {
+                          _fetchTranslation();
+                        } else {
+                          setState(() {
+                            _showTranslate = !_showTranslate;
+                          });
+                        }
+                      }
+                    },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),

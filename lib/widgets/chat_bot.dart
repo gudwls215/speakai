@@ -83,17 +83,38 @@ class _ChatBotInputState extends State<ChatBotInput> {
       isUser: false,
     ));
   }
-
+  
   void _initSpeech() async {
     await _speechHandler.initialize(
       onStatus: (status) {
         print("onStatus: $status");
         setState(() {});
       },
-      onError: (error) {
-        print("onError: $error");
+      onError: (dynamic error) {
+        print("Error: ${error.toString()}");
         setState(() {});
       },
+    );
+
+    if (!_speechHandler.isListening.value) {
+      _showMicPermissionDialog();
+    }
+  }
+
+  void _showMicPermissionDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('마이크 권한 필요'),
+        content: Text('음성 인식을 사용하려면 브라우저에서 마이크 권한을 허용해주세요. '
+            '주소창 옆 🔒 아이콘을 클릭해 마이크 권한을 허용할 수 있어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('확인'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -134,8 +155,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
       'stream': 'true',
     };
 
-    SSEHandler.fetchBotResponseWeb(parameters,"chat", (botMessageChunk) {
-
+    SSEHandler.fetchBotResponseWeb(parameters, "chat", (botMessageChunk) {
       // UI 업데이트는 반드시 main 스레드에서 처리
       if (mounted) {
         setState(() {
@@ -200,6 +220,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
   void _stopListening() async {
     await _speechHandler.stopListening();
+    _recognizedText = "";
     setState(() {});
   }
 
