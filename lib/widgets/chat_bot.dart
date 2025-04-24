@@ -7,6 +7,8 @@ import 'package:speakai/providers/chat_provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:speakai/widgets/voca_multiple.dart';
+
 class ChatBotInput extends StatefulWidget {
   @override
   _ChatBotInputState createState() => _ChatBotInputState();
@@ -39,7 +41,10 @@ class _ChatBotInputState extends State<ChatBotInput> {
         final data = json.decode(response.body);
         final apiResponse = data['response'];
         final intent = data['intent'];
-        final gameType = data['game_type'];
+        final gameType = data['game_type'] ?? '';
+        final datas = data['data'] ?? [];
+
+        print(datas);
 
         setState(() {
           // 마지막에 추가된 봇 메시지 업데이트
@@ -57,6 +62,55 @@ class _ChatBotInputState extends State<ChatBotInput> {
         _chatProvider.intentUpdate(intent);
         _chatProvider.gameTypeUpdate(gameType);
 
+        switch (intent) {
+          case "game":
+            // 게임 관련 처리
+            break;
+          case "help":
+            // 도움 요청 처리
+            break;
+          case "vocabulary":
+            // 단어 연습 관련 처리
+            print('단어 연습 관련 처리');
+            if (datas.isNotEmpty) {
+              final metadata = datas[0]['metadata']; // metadata 접근
+
+              setState(() {
+                // 추천 카드 추가
+                _chatProvider.add(ChatMessage(
+                  widget:
+                      _buildRecommendationCard(metadata, intent), // 추천 카드 추가
+                  isUser: false, text: '',
+                ));
+              });
+            }
+
+            break;
+          case "course":
+            // 코스 관련 처리
+            print('코스 관련 처리');
+            if (datas.isNotEmpty) {
+              final metadata = datas[0]['metadata']; // metadata 접근
+
+              setState(() {
+                // 추천 카드 추가
+                _chatProvider.add(ChatMessage(
+                  widget:
+                      _buildRecommendationCard(metadata, intent), // 추천 카드 추가
+                  isUser: false, text: '',
+                ));
+              });
+            }
+
+            break;
+          case "conversation":
+            // 대화 관련 처리
+            chatBotResponse(userMessage);
+            break;
+          default:
+          // 기본 처리
+        }
+
         print('Response: $apiResponse');
         print('Intent: $intent');
         print('Game Type: $gameType');
@@ -66,6 +120,48 @@ class _ChatBotInputState extends State<ChatBotInput> {
     } catch (e) {
       print('예외 발생: $e');
     }
+  }
+
+  void chatBotResponse(String message) async {
+    Map<String, String> parameters = {
+      'user_message': message,
+      'user_id': _chatProvider.getUserId,
+      'stream': 'true',
+    };
+
+    SSEHandler.fetchBotResponseWeb(parameters, "chat", (botMessageChunk) {
+      // UI 업데이트는 반드시 main 스레드에서 처리
+      if (mounted) {
+        setState(() {
+          // 마지막에 추가된 봇 메시지 업데이트
+          if (_chatProvider.isNotEmpty && !_chatProvider.isLastMessageUser) {
+            _chatProvider.messageUpdate(botMessageChunk);
+
+            // 각 메시지 청크마다 스크롤 업데이트
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _scrollToBottom();
+            });
+          }
+        });
+      }
+    }, (error) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }, onDone: () {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        // 메시지 완료 후 스크롤 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+      }
+    });
   }
 
   @override
@@ -83,7 +179,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
       isUser: false,
     ));
   }
-  
+
   void _initSpeech() async {
     await _speechHandler.initialize(
       onStatus: (status) {
@@ -148,46 +244,6 @@ class _ChatBotInputState extends State<ChatBotInput> {
       userId: "ttm",
       userMessage: message,
     );
-
-    Map<String, String> parameters = {
-      'user_message': message,
-      'user_id': _chatProvider.getUserId,
-      'stream': 'true',
-    };
-
-    SSEHandler.fetchBotResponseWeb(parameters, "chat", (botMessageChunk) {
-      // UI 업데이트는 반드시 main 스레드에서 처리
-      if (mounted) {
-        setState(() {
-          // 마지막에 추가된 봇 메시지 업데이트
-          if (_chatProvider.isNotEmpty && !_chatProvider.isLastMessageUser) {
-            _chatProvider.messageUpdate(botMessageChunk);
-
-            // 각 메시지 청크마다 스크롤 업데이트
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _scrollToBottom();
-            });
-          }
-        });
-      }
-    }, (error) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }, onDone: () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
-        // 메시지 완료 후 스크롤 업데이트
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollToBottom();
-        });
-      }
-    });
   }
 
   // 스크롤을 맨 아래로 이동시키는 함수
@@ -222,11 +278,6 @@ class _ChatBotInputState extends State<ChatBotInput> {
     await _speechHandler.stopListening();
     _recognizedText = "";
     setState(() {});
-  }
-
-  // 모바일 환경용 기존 SSE 메서드 (수정 필요)
-  void _fetchBotResponseMobile(String message) {
-    // 기존 SSE 클라이언트 로직 그대로 사용
   }
 
   Widget _buildQuickReply(String title, String text) {
@@ -272,44 +323,73 @@ class _ChatBotInputState extends State<ChatBotInput> {
     );
   }
 
-  Widget _buildRecommendationCard(String title) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 16.0),
-      padding: EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade900,
-        borderRadius: BorderRadius.circular(16.0),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: Colors.blue.shade700,
-            child: Icon(Icons.stars, color: Colors.white),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '회원님이 요청한 수업',
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 14,
-                  ),
+  Widget _buildRecommendationCard(metadata, intent) {
+    return GestureDetector(
+      onTap: () {
+        switch (intent) {
+          case "vocabulary":
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VocaMultiple(
+                  metadata['COURSE'].toString(),
+                  metadata['CHAPTER'].toString(),
+                  metadata['SECTION'].toString(),
+                  "",
                 ),
-                Text(
-                  'Music Genres',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+              ),
+            );
+            break;
+          case "course":
+            // 코스 관련 처리
+            print('코스 관련 처리');
+            break;
+          default:
+          // 기본 처리
+        }
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16.0),
+        padding: EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade900,
+          borderRadius: BorderRadius.circular(16.0),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Colors.blue.shade700,
+              child: Icon(Icons.stars, color: Colors.white),
             ),
-          ),
-        ],
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    intent != "vocabulary"
+                        ? '회원님이 요청한 코스'
+                        : '회원님이 요청한 단어 모음집',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    intent != "vocabulary"
+                        ? metadata['COURSE_NAME']
+                        : 'Course. ' + metadata['COURSE_NAME'] + '\n Chapter. ' + metadata['CHAPTER_NAME'],
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

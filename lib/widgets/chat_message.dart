@@ -5,15 +5,17 @@ class ChatMessage extends StatelessWidget {
   final String text;
   final bool isUser;
   final bool isError;
+  final Widget? widget;
 
   const ChatMessage({
     Key? key,
     required this.text,
     this.isUser = false,
     this.isError = false,
+    this.widget,
   }) : super(key: key);
 
-    Widget _buildUserMessage() {
+  Widget _buildUserMessage() {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
@@ -34,13 +36,11 @@ class ChatMessage extends StatelessWidget {
     );
   }
 
-  
-
   Widget _buildBotMessage() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 8), 
+        SizedBox(width: 8),
         CircleAvatar(
           backgroundColor: Colors.blue,
           child: Icon(Icons.smart_toy, color: Colors.white),
@@ -62,9 +62,12 @@ class ChatMessage extends StatelessWidget {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
-    return isUser ? _buildUserMessage() : _buildBotMessage();
+    return widget != null
+        ? widget!
+        : isUser
+            ? _buildUserMessage()
+            :  _buildBotMessage();
   }
 }

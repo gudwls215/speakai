@@ -28,7 +28,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
         title: 'SpeakAI',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          primarySwatch: Colors.blue,
+          scaffoldBackgroundColor: Colors.black,
           useMaterial3: true,
         ),
         home: const MyHomePage(title: 'SpeakAI'));
