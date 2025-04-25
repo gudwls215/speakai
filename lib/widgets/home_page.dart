@@ -36,11 +36,11 @@ class HomePage extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                     builder: (context) =>
-                        PronunciationAssessment(referenceText: "Today was a beautiful day.")),
+                        PronunciationAssessment("1", "1", "1")),
               );
             },
             child: const CategoryCard(
-                'Word Smart', '발음 연습습!', Icons.school),
+                'pronunciation assessment', '수업한 내용 복습과 발음 평가!', Icons.school),
           ),
           // CategoryCard(
           //     'Native Speakers\' Idioms', '네이티브가 실제 쓰는 숙어 표현', Icons.language),

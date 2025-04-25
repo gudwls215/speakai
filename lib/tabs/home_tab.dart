@@ -30,9 +30,9 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 52, 39, 61),
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 52, 39, 61),
+        backgroundColor: Color(0xFF374151),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -43,6 +43,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.blue,
+          indicatorSize: TabBarIndicatorSize.tab,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.grey,
           tabs: const [

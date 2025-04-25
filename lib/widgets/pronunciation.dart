@@ -5,12 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class PronunciationAssessment extends StatefulWidget {
-  final String referenceText;
+  final String course;
+  final String chapter;
+  final String section;
 
-  const PronunciationAssessment({
-    Key? key,
-    required this.referenceText,
-  }) : super(key: key);
+  const PronunciationAssessment(this.course, this.chapter, this.section,
+      {Key? key})
+      : super(key: key);
 
   @override
   State<PronunciationAssessment> createState() =>
@@ -18,10 +19,12 @@ class PronunciationAssessment extends StatefulWidget {
 }
 
 class _PronunciationAssessmentState extends State<PronunciationAssessment> {
+  int _currentIndex = 0;
   bool _isRecording = false;
   bool _isProcessing = false;
   Map<String, dynamic>? _assessmentResult;
   List<Map<String, dynamic>>? _wordResults;
+  List<String>? _conversationData;
 
   // For web audio recording
   html.MediaRecorder? _recorder;
@@ -32,6 +35,29 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   @override
   void initState() {
     super.initState();
+    _fetchConversationData();
+  }
+
+  Future<void> _fetchConversationData() async {
+    final url = Uri.parse(
+        'http://192.168.0.147:8000/conversation?course=${widget.course}&chapter=${widget.chapter}&section=${widget.section}');
+    try {
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Conversation data: $data');
+        setState(() {
+          _conversationData = List<String>.from(data['conversation']);
+        });
+      } else {
+        print('Failed to fetch conversation data: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching conversation data: $e');
+    }
   }
 
   Future<void> _startRecording() async {
@@ -141,7 +167,16 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
       formData.appendBlob('audio_file', blob, 'recording.webm');
 
       // Add the reference text
-      formData.append('reference_text', widget.referenceText);
+      if (_conversationData != null &&
+          _currentIndex < _conversationData!.length) {
+        formData.append('reference_text', _conversationData![_currentIndex]);
+      } else {
+        print('Invalid conversation data or index');
+        setState(() {
+          _isProcessing = false;
+        });
+        return;
+      }
 
       // Send to server
       final url = 'http://192.168.0.147:8000/assess_pronunciation';
@@ -200,74 +235,6 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     }
   }
 
-  // Alternative method using http package (useful if xhr doesn't work well)
-  Future<void> _sendToServerWithHttp() async {
-    try {
-      final blob = html.Blob(_audioChunks, 'audio/webm');
-      final reader = html.FileReader();
-      final completer = Completer<List<int>>();
-
-      reader.onLoadEnd.listen((event) {
-        final result = reader.result;
-        final list = (result as List<int>).cast<int>();
-        completer.complete(list);
-      });
-
-      reader.readAsArrayBuffer(blob);
-      final audioBytes = await completer.future;
-
-      // Create multipart request
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('http://localhost:8000/assess_pronunciation'),
-      );
-
-      // Add the audio file
-      request.files.add(http.MultipartFile.fromBytes(
-        'audio_file',
-        audioBytes,
-        filename: 'recording.webm',
-      ));
-
-      // Add reference text
-      request.fields['reference_text'] = widget.referenceText;
-
-      // Send the request
-      final response = await request.send();
-      final responseData = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(responseData);
-        setState(() {
-          _assessmentResult = {
-            'pronunciationScore': data['pronunciation_score'],
-            'accuracyScore': data['accuracy_score'],
-            'completenessScore': data['completeness_score'],
-            'fluencyScore': data['fluency_score'],
-            'prosodyScore': data['prosody_score'],
-          };
-          _wordResults =
-              List<Map<String, dynamic>>.from(data['words'].map((word) => {
-                    'word': word['word'],
-                    'accuracyScore': word['accuracy_score'],
-                    'errorType': word['error_type'],
-                  }));
-          _isProcessing = false;
-        });
-      } else {
-        print('Server error: ${response.statusCode}');
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    } catch (e) {
-      print('Error sending to server: $e');
-      setState(() {
-        _isProcessing = false;
-      });
-    }
-  }
-
   @override
   void dispose() {
     // Stop recording if still active
@@ -280,10 +247,34 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
   @override
   Widget build(BuildContext context) {
+    final totalItems = _conversationData?.length ?? 0;
+    final progress = totalItems > 0 ? (_currentIndex + 1) / totalItems : 0.0;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pronunciation Assessment'),
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Text(
+              "발음 연습",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -291,30 +282,70 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Reference text card
-              Card(
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Reference Text:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+              // 진행률 표시
+              if (totalItems > 0) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[800],
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: FractionallySizedBox(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: progress,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.referenceText,
-                        style: const TextStyle(fontSize: 18),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Reference text card
+              if (_conversationData != null && _conversationData!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Card(
+                    color: Colors.grey[850],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '따라해보세요:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _conversationData![_currentIndex],
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.blue,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
 
               const SizedBox(height: 24),
 
@@ -324,13 +355,59 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                     ? null
                     : (_isRecording ? _stopRecording : _startRecording),
                 icon: Icon(_isRecording ? Icons.stop : Icons.mic),
-                label:
-                    Text(_isRecording ? 'Stop Recording' : 'Start Recording'),
+                label: Text(
+                  _isRecording ? 'Stop Recording' : 'Start Recording',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _isRecording ? Colors.red : Colors.blue,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
+
+              const SizedBox(height: 16),
+
+              // Next button
+              if (!_isRecording && !_isProcessing && _conversationData != null)
+                ElevatedButton(
+                  onPressed: _currentIndex < totalItems - 1
+                      ? () {
+                          setState(() {
+                            _currentIndex++;
+                            _assessmentResult = null; // 평가 결과 초기화
+                            _wordResults = null; // 단어 결과 초기화
+
+                            // 녹음 관련 상태 초기화
+                            _isRecording = false;
+                            _audioChunks.clear();
+                            _audioPlayer = null;
+                            _stream
+                                ?.getTracks()
+                                .forEach((track) => track.stop());
+                            _stream = null;
+                            _recorder = null;
+                          });
+                        }
+                      : null,
+                  child: const Text(
+                    '다음 문장',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(255, 41, 177, 211),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                ),
+
+              const SizedBox(height: 16),
 
               // Play button
               if (_audioPlayer != null)
@@ -339,7 +416,14 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                     _audioPlayer!.play();
                   },
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text('Play Recording'),
+                  label: const Text(
+                    '재생',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -366,6 +450,10 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
                 // Overall scores
                 Card(
+                  color: Colors.grey[850],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 4,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -373,23 +461,24 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Assessment Results:',
+                          '평과 결과:',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildScoreRow('Pronunciation Score',
-                            _assessmentResult!['pronunciationScore']),
-                        _buildScoreRow('Accuracy Score',
-                            _assessmentResult!['accuracyScore']),
-                        _buildScoreRow('Completeness Score',
-                            _assessmentResult!['completenessScore']),
-                        _buildScoreRow('Fluency Score',
-                            _assessmentResult!['fluencyScore']),
-                        _buildScoreRow('Prosody Score',
-                            _assessmentResult!['prosodyScore']),
+                        _buildScoreRow(
+                            '발음 점수', _assessmentResult!['pronunciationScore']),
+                        _buildScoreRow(
+                            '정확도 점수', _assessmentResult!['accuracyScore']),
+                        _buildScoreRow(
+                            '완성도 점수', _assessmentResult!['completenessScore']),
+                        _buildScoreRow(
+                            '유창성 점수', _assessmentResult!['fluencyScore']),
+                        _buildScoreRow(
+                            '운율 점수', _assessmentResult!['prosodyScore']),
                       ],
                     ),
                   ),
@@ -415,6 +504,18 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                       final word = _wordResults![index];
                       final errorType = word['errorType'];
 
+                      final errorTypeTranslations = {
+                        'Mispronunciation': '잘못된 발음',
+                        'Omission': '생략',
+                        'Insertion': '삽입',
+                        'Unnecessary pause': '불필요한 멈춤',
+                        'Missing pause': '누락된 멈춤',
+                        'Monotone': '모노톤',
+                      };
+
+                      final translatedErrorType =
+                          errorTypeTranslations[errorType] ?? '알 수 없는 오류';
+
                       Color color;
                       if (errorType == 'None') {
                         color = Colors.green;
@@ -427,20 +528,47 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         color: color.withOpacity(0.1),
-                        child: ListTile(
-                          title: Text(
-                            word['word'],
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: color,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                  'Accuracy: ${word['accuracyScore']?.toStringAsFixed(1) ?? "N/A"}'),
-                              Text('Error type: ${word['errorType']}'),
+                              // Word on the left
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  word['word'],
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: color,
+                                    fontSize: 14, // 줄어든 높이에 맞게 폰트 크기 조정
+                                  ),
+                                ),
+                              ),
+                              // Accuracy and Error on the right
+                              Expanded(
+                                flex: 3,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '정확성: ${word['accuracyScore']?.toStringAsFixed(1) ?? "N/A"}',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade300,
+                                        fontSize: 12, // 줄어든 높이에 맞게 폰트 크기 조정
+                                      ),
+                                    ),
+                                    Text(
+                                      '오류: $translatedErrorType',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade300,
+                                        fontSize: 12, // 줄어든 높이에 맞게 폰트 크기 조정
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -455,22 +583,36 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
       ),
     );
   }
+}
 
-  Widget _buildScoreRow(String label, dynamic score) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label),
-          Text(
-            score is num ? score.toStringAsFixed(1) : 'N/A',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
+Widget _buildScoreRow(String label, dynamic score) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 18,
+            color: Colors.white,
           ),
-        ],
-      ),
-    );
-  }
+        ),
+        Text(
+          score is num ? score.toStringAsFixed(1) : 'N/A',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: 
+            score is num && score >= 70
+                ? Colors.green
+                : score is num && score >= 20
+                    ? Colors.orange
+                    : Colors.red,
+          ),
+        ),
+      ],
+    ),
+  );
 }
