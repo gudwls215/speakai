@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:speakai/services/speech_to_text_handler.dart';
 import 'package:speakai/services/sse_service.dart';
@@ -280,38 +282,153 @@ class _ChatBotInputState extends State<ChatBotInput> {
     setState(() {});
   }
 
-  Widget _buildQuickReply(String title, String text) {
-    return SizedBox(
-      width: 200,
-      child: Container(
-        margin: EdgeInsets.all(4.0),
-        padding: EdgeInsets.symmetric(vertical: 12.0),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade900,
-          borderRadius: BorderRadius.circular(16.0),
-        ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+  Widget _buildQuickReply(String title, String text, [String intent = ""]) {
+    return GestureDetector(
+      onTap: () {
+        _handleQuickReply(intent); // 클릭 시 intent를 특정 함수로 전달
+      },
+      child: SizedBox(
+        width: 200,
+        child: Container(
+          margin: EdgeInsets.all(4.0),
+          padding: EdgeInsets.symmetric(vertical: 12.0),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade900,
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          child: Column(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            Text(
-              text,
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
+              Text(
+                text,
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleQuickReply(String intent) async {
+    switch (intent) {
+      case "level":
+        print("레벨 테스트 시작");
+
+        setState(() {
+          _chatProvider.add(ChatMessage(
+            text: "레벨 테스트",
+            isUser: true,
+          ));
+
+          _chatProvider.add(ChatMessage(
+            text:
+                "당신의 영어 레벨을 측정해볼게요! 세개의 질문을 드릴거에요. 할 수 있는 만큼 영어로 대답해보세요. 마지막에는 CEFR(유럽연합 공통언어 표준등급)에 따라 당신의 영어 레벨을 알려드릴게요. 바로 시작해볼까요?",
+            isUser: false,
+          ));
+        });
+
+        final Uri uri = Uri.parse("http://192.168.0.147:8000/level/questions")
+            .replace(queryParameters: {
+          'user_id': "ttm",
+        });
+
+        try {
+          final response = await http.get(uri);
+
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+
+            // `questions` 필드가 문자열로 반환되었을 경우 다시 디코딩
+            final questions = data['questions'] as List<dynamic>;
+            print(questions);
+
+            // 사용자 응답 저장
+            List<String> userResponses = [];
+
+            // 질문 순차적으로 처리
+            for (var question in questions) {
+              setState(() {
+                _chatProvider.add(ChatMessage(
+                  text: question['text']!,
+                  isUser: false,
+                ));
+              });
+
+              // 사용자 응답 대기
+              await _waitForUserResponse().then((response) {
+                userResponses.add(response);
+
+                setState(() {
+                  _chatProvider.add(ChatMessage(
+                    text: response,
+                    isUser: true,
+                  ));
+                });
+              });
+            }
+
+            // 레벨 테스트 결과 출력
+            setState(() {
+              _chatProvider.add(ChatMessage(
+                text: "레벨 테스트가 완료되었습니다. 감사합니다!",
+                isUser: false,
+              ));
+            });
+          }
+        } catch (e) {
+          print('예외 발생: $e');
+        }
+
+        break;
+      case "vocabulary":
+        print("단어 모음집 열기");
+        // 단어 모음집 관련 로직 추가
+        break;
+      case "pronunciation":
+        print("발음 연습 시작");
+        // 발음 연습 관련 로직 추가
+        break;
+      case "course":
+        print("강의 추천");
+        // 강의 추천 관련 로직 추가
+        break;
+      default:
+        print("알 수 없는 intent: $intent");
+    }
+  }
+
+  // 사용자 응답 대기 함수
+  Future<String> _waitForUserResponse() async {
+    Completer<String> completer = Completer<String>();
+
+    // Enter 키 또는 Send 버튼을 눌렀을 때만 응답 처리
+    void handleResponse() {
+      if (_textController.text.trim().isNotEmpty && !completer.isCompleted) {
+        completer.complete(_textController.text.trim());
+        _textController.clear();
+      }
+    }
+
+    // TextField의 onSubmitted 이벤트 처리
+    _textController.addListener(() {
+      if (_textController.text.endsWith('\n')) {
+        handleResponse();
+      }
+    });
+
+    return completer.future;
   }
 
   Widget _buildLoadingIndicator() {
@@ -367,9 +484,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    intent != "vocabulary"
-                        ? '회원님이 요청한 코스'
-                        : '회원님이 요청한 단어 모음집',
+                    intent != "vocabulary" ? '회원님이 요청한 코스' : '회원님이 요청한 단어 모음집',
                     style: TextStyle(
                       color: Colors.grey,
                       fontSize: 14,
@@ -378,7 +493,10 @@ class _ChatBotInputState extends State<ChatBotInput> {
                   Text(
                     intent != "vocabulary"
                         ? metadata['COURSE_NAME']
-                        : 'Course. ' + metadata['COURSE_NAME'] + '\n Chapter. ' + metadata['CHAPTER_NAME'],
+                        : 'Course. ' +
+                            metadata['COURSE_NAME'] +
+                            '\n Chapter. ' +
+                            metadata['CHAPTER_NAME'],
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -506,19 +624,24 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
                             // Quick reply options
                             Container(
+                              width: double.infinity,
                               padding: EdgeInsets.symmetric(
                                   horizontal: 8.0, vertical: 12.0),
                               child: SingleChildScrollView(
                                 scrollDirection: Axis.horizontal, // 수평 스크롤 활성화
+                                physics: ClampingScrollPhysics(), // 드래그 스크롤 활성화
                                 child: Row(
                                   mainAxisSize:
                                       MainAxisSize.min, // Row의 크기를 내용물에 맞춤
                                   children: [
-                                    _buildQuickReply("게임하기", "10고개 게임을 해볼까요?"),
                                     _buildQuickReply(
-                                        "단어모음집", "단어 모음집을 만들어볼까요?"),
-                                    _buildQuickReply("단어연습", "어려운 단어 연습을 하고싶어"),
-                                    _buildQuickReply("퀴즈", "퀴즈를 풀어볼까요?"),
+                                        "레벨테스트", "당신의 영어 레벨을 측정해볼게요!", "level"),
+                                    _buildQuickReply("단어모음집", "단어 모음집을 만들어볼까요?",
+                                        "vocabulary"),
+                                    _buildQuickReply("발음연습",
+                                        "어려운 단어 발음연습을 하고싶어", "pronunciation"),
+                                    _buildQuickReply(
+                                        "강의추천", "어떤 강의를 추천해줄래?", "course"),
                                   ],
                                 ),
                               ),
