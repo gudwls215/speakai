@@ -225,7 +225,9 @@ class _ChatBotInputState extends State<ChatBotInput> {
     if (message.isEmpty) return;
 
     // 레벨 테스트 모드인 경우
-    if (_isInLevelTest && _levelTestCompleter != null && !_levelTestCompleter!.isCompleted) {
+    if (_isInLevelTest &&
+        _levelTestCompleter != null &&
+        !_levelTestCompleter!.isCompleted) {
       // 레벨 테스트 응답 처리
       _levelTestCompleter!.complete(message);
       setState(() {
@@ -344,15 +346,123 @@ class _ChatBotInputState extends State<ChatBotInput> {
     );
   }
 
+  // 레벨 평가 API 호출 함수
+Future<void> _fetchLevelAssessment(
+    List<String> userResponses, List<dynamic> questions) async {
+  final Uri uri = Uri.parse("http://192.168.0.147:8000/level/assessment");
+
+  // API에 보낼 데이터 구성
+  List<Map<String, String>> answersData = [];
+  for (int i = 0; i < userResponses.length; i++) {
+    print("레벨 테스트 질문: ${questions[i]['text']}");
+    print("레벨 테스트 답변: ${userResponses[i]}");
+
+    answersData.add({
+      "answer": userResponses[i],
+      "question": questions[i]['text']!,
+      "question_id": questions[i]['id']!,
+    });
+  }
+
+  final Map<String, dynamic> requestData = {
+    "user_id": "ttm",
+    "stream": false,
+    "answers": answersData,
+  };
+
+  try {
+    final response = await http.post(
+      uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(requestData),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(utf8.decode(response.bodyBytes));
+
+      // 결과 표시
+      setState(() {
+        // "레벨 테스트 결과를 분석 중입니다..." 메시지 제거
+        if (_chatProvider.isNotEmpty &&
+            !_chatProvider.isLastMessageUser &&
+            _chatProvider.lastMessage.text ==
+                "레벨 테스트 결과를 분석 중입니다...") {
+          _chatProvider.removeLastMessage();
+        }
+
+        // 마지막 메시지 업데이트 (분석 중 -> 결과)
+        _chatProvider.add(ChatMessage(
+          text: _buildLevelAssessmentResult(data),
+          isUser: false,
+        ));
+      });
+
+      // 스크롤 업데이트
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
+    } else {
+      print('API 호출 실패: ${response.statusCode}');
+      setState(() {
+        _chatProvider.add(ChatMessage(
+          text: "레벨 테스트 평가 중 오류가 발생했습니다. 다시 시도해주세요.",
+          isUser: false,
+        ));
+      });
+    }
+  } catch (e) {
+    print('예외 발생: $e');
+    setState(() {
+      _chatProvider.add(ChatMessage(
+        text: "레벨 테스트 평가 중 오류가 발생했습니다. 다시 시도해주세요.",
+        isUser: false,
+      ));
+    });
+  }
+}
+
+  // 레벨 평가 결과 메시지 구성
+  String _buildLevelAssessmentResult(Map<String, dynamic> data) {
+    String level = data['level'] ?? 'N/A';
+    String explanation = data['explanation'] ?? '평가 내용을 불러올 수 없습니다.';
+    List<dynamic> strengths = data['strengths'] ?? [];
+    List<dynamic> weaknesses = data['weaknesses'] ?? [];
+
+    String resultMessage = "📊 레벨 테스트 결과\n\n";
+    resultMessage += "📝 영어 레벨: $level\n\n";
+    resultMessage += "✨ 설명:\n$explanation\n\n";
+
+    if (strengths.isNotEmpty) {
+      resultMessage += "💪 강점:\n";
+      for (int i = 0; i < strengths.length; i++) {
+        resultMessage += "- ${strengths[i]}\n";
+      }
+      resultMessage += "\n";
+    }
+
+    if (weaknesses.isNotEmpty) {
+      resultMessage += "🔍 개선할 점:\n";
+      for (int i = 0; i < weaknesses.length; i++) {
+        resultMessage += "- ${weaknesses[i]}\n";
+      }
+    }
+
+    return resultMessage;
+  }
+
   Future<void> _handleQuickReply(String intent) async {
     switch (intent) {
       case "level":
         print("레벨 테스트 시작");
-        
+
+        setState(() {
+          _isLoading = true;
+        });
+
         // 레벨 테스트 모드 시작
         setState(() {
           _isInLevelTest = true;
-          
+
           _chatProvider.add(ChatMessage(
             text: "레벨 테스트",
             isUser: true,
@@ -360,7 +470,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
           _chatProvider.add(ChatMessage(
             text:
-                "당신의 영어 레벨을 측정해볼게요! 세개의 질문을 드릴거에요. 할 수 있는 만큼 영어로 대답해보세요. 마지막에는 CEFR(유럽연합 공통언어 표준등급)에 따라 당신의 영어 레벨을 알려드릴게요. 바로 시작해볼까요?",
+                "당신의 영어 레벨을 측정해볼게요! 세개의 질문을 드릴거에요. 할 수 있는 만큼 영어로 대답해보세요. 마지막에는 CEFR(유럽연합 공통언어 표준등급)에 따라 당신의 영어 레벨을 알려드릴게요. 잠시만 기다려 주세요.",
             isUser: false,
           ));
         });
@@ -380,6 +490,11 @@ class _ChatBotInputState extends State<ChatBotInput> {
             final questions = data['questions'] as List<dynamic>;
             print(questions);
 
+            // 로딩 상태 종료
+            setState(() {
+              _isLoading = false;
+            });
+
             // 사용자 응답 저장
             List<String> userResponses = [];
 
@@ -397,13 +512,20 @@ class _ChatBotInputState extends State<ChatBotInput> {
               userResponses.add(userResponse);
             }
 
+            // 레벨 테스트 평가 API 호출
+            setState(() {
+              _chatProvider.add(ChatMessage(
+                text: "레벨 테스트 결과를 분석 중입니다...",
+                isUser: false,
+              ));
+            });
+
+            // 레벨 평가 API 호출
+            await _fetchLevelAssessment(userResponses, questions);
+
             // 레벨 테스트 모드 종료
             setState(() {
               _isInLevelTest = false;
-              _chatProvider.add(ChatMessage(
-                text: "레벨 테스트가 완료되었습니다. 감사합니다!",
-                isUser: false,
-              ));
             });
           }
         } catch (e) {
@@ -437,7 +559,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
     if (_levelTestCompleter != null && !_levelTestCompleter!.isCompleted) {
       // 완료되지 않은 기존 completer는 취소할 방법이 없으므로 새로운 것으로 대체
     }
-    
+
     _levelTestCompleter = Completer<String>();
 
     return _levelTestCompleter!.future;
@@ -661,15 +783,15 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                               ? Colors.red
                                               : Colors.grey,
                                         ),
-                                        onPressed: _isInLevelTest 
-                                          ? null  // 레벨 테스트 중일 때는 비활성화
-                                          : () {
-                                              if (isListening) {
-                                                _stopListening();
-                                              } else {
-                                                _startListening();
-                                              }
-                                            },
+                                        onPressed: _isInLevelTest
+                                            ? null // 레벨 테스트 중일 때는 비활성화
+                                            : () {
+                                                if (isListening) {
+                                                  _stopListening();
+                                                } else {
+                                                  _startListening();
+                                                }
+                                              },
                                       );
                                     },
                                   ),
@@ -694,9 +816,9 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                         controller:
                                             _textController, // 입력 필드에 컨트롤러 추가
                                         decoration: InputDecoration(
-                                          hintText: _isInLevelTest 
-                                            ? '영어로 답변해 주세요...' 
-                                            : '메시지 보내기',
+                                          hintText: _isInLevelTest
+                                              ? '영어로 답변해 주세요...'
+                                              : '메시지 보내기',
                                           hintStyle:
                                               TextStyle(color: Colors.grey),
                                           border: InputBorder.none,
@@ -707,7 +829,9 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                   IconButton(
                                     icon: Icon(
                                       Icons.send,
-                                      color: _isInLevelTest ? Colors.blue : Colors.grey,
+                                      color: _isInLevelTest
+                                          ? Colors.blue
+                                          : Colors.grey,
                                     ),
                                     onPressed: _sendMessage,
                                   ),
