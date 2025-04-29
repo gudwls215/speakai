@@ -24,6 +24,8 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
   String _recognizedText = "";
   bool _isLoading = false;
+  bool _isInLevelTest = false; // 레벨 테스트 모드 여부
+  Completer<String>? _levelTestCompleter; // 레벨 테스트에서 사용할 Completer
 
   Future<void> fetchIntent({
     required String userId,
@@ -216,11 +218,32 @@ class _ChatBotInputState extends State<ChatBotInput> {
     );
   }
 
+  // 메시지 전송 함수 - 일반 채팅과 레벨 테스트 모드에 따라 동작 분기
   void _sendMessage() async {
     final message = _textController.text;
 
     if (message.isEmpty) return;
 
+    // 레벨 테스트 모드인 경우
+    if (_isInLevelTest && _levelTestCompleter != null && !_levelTestCompleter!.isCompleted) {
+      // 레벨 테스트 응답 처리
+      _levelTestCompleter!.complete(message);
+      setState(() {
+        _chatProvider.add(ChatMessage(
+          text: message,
+          isUser: true,
+        ));
+        _textController.clear();
+      });
+
+      // 스크롤을 맨 아래로 이동
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
+      return;
+    }
+
+    // 일반 채팅 모드인 경우 기존 로직 수행
     setState(() {
       _chatProvider.add(ChatMessage(
         text: message,
@@ -325,8 +348,11 @@ class _ChatBotInputState extends State<ChatBotInput> {
     switch (intent) {
       case "level":
         print("레벨 테스트 시작");
-
+        
+        // 레벨 테스트 모드 시작
         setState(() {
+          _isInLevelTest = true;
+          
           _chatProvider.add(ChatMessage(
             text: "레벨 테스트",
             isUser: true,
@@ -367,20 +393,13 @@ class _ChatBotInputState extends State<ChatBotInput> {
               });
 
               // 사용자 응답 대기
-              await _waitForUserResponse().then((response) {
-                userResponses.add(response);
-
-                setState(() {
-                  _chatProvider.add(ChatMessage(
-                    text: response,
-                    isUser: true,
-                  ));
-                });
-              });
+              String userResponse = await _waitForUserResponse();
+              userResponses.add(userResponse);
             }
 
-            // 레벨 테스트 결과 출력
+            // 레벨 테스트 모드 종료
             setState(() {
+              _isInLevelTest = false;
               _chatProvider.add(ChatMessage(
                 text: "레벨 테스트가 완료되었습니다. 감사합니다!",
                 isUser: false,
@@ -388,6 +407,9 @@ class _ChatBotInputState extends State<ChatBotInput> {
             });
           }
         } catch (e) {
+          setState(() {
+            _isInLevelTest = false; // 에러 발생 시에도 레벨 테스트 모드 종료
+          });
           print('예외 발생: $e');
         }
 
@@ -411,24 +433,14 @@ class _ChatBotInputState extends State<ChatBotInput> {
 
   // 사용자 응답 대기 함수
   Future<String> _waitForUserResponse() async {
-    Completer<String> completer = Completer<String>();
-
-    // Enter 키 또는 Send 버튼을 눌렀을 때만 응답 처리
-    void handleResponse() {
-      if (_textController.text.trim().isNotEmpty && !completer.isCompleted) {
-        completer.complete(_textController.text.trim());
-        _textController.clear();
-      }
+    // 기존 completer가 있으면 취소하고 새로운 completer 생성
+    if (_levelTestCompleter != null && !_levelTestCompleter!.isCompleted) {
+      // 완료되지 않은 기존 completer는 취소할 방법이 없으므로 새로운 것으로 대체
     }
+    
+    _levelTestCompleter = Completer<String>();
 
-    // TextField의 onSubmitted 이벤트 처리
-    _textController.addListener(() {
-      if (_textController.text.endsWith('\n')) {
-        handleResponse();
-      }
-    });
-
-    return completer.future;
+    return _levelTestCompleter!.future;
   }
 
   Widget _buildLoadingIndicator() {
@@ -575,8 +587,6 @@ class _ChatBotInputState extends State<ChatBotInput> {
                             ),
 
                             // Chat messages
-
-                            // 채팅 메시지 리스트
                             Expanded(
                               child: ValueListenableBuilder<List<ChatMessage>>(
                                 valueListenable: _chatProvider.messages,
@@ -601,26 +611,6 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                 },
                               ),
                             ),
-                            // Expanded(
-                            //   child: ListView(
-                            //     controller: scrollController,
-                            //     padding: EdgeInsets.symmetric(horizontal: 16.0),
-                            // children: [
-                            //   _buildUserMessage('음악 장르는 뭐가 있어'),
-                            //   _buildBotMessage(
-                            //       '음악 장르는 정말 다양해요! 예를 들어, "rock"은 록, "jazz"는 재즈, "pop"은 팝, "classical"은 클래식이라고 해요. 더 궁금한 음악 장르가 있나요? 함께 더 알아볼까요?'),
-                            //   _buildUserMessage('단어 모음집'),
-                            //   _buildBotMessage(
-                            //       '음악 장르와 관련된 영어 단어들을 모아볼까요? 다양한 장르와 관련된 단어들을 함께 배워보세요.'),
-                            //   _buildRecommendationCard('Music Genres'),
-                            //   _buildBotMessage(
-                            //       '이 강의를 시작해서 더 많은 단어를 익혀보세요! 궁금한 점이 있으면 언제든지 물어보세요.'),
-                            //   _buildUserMessage('어려운 단어 연습을 하고싶어어'),
-                            //   _messages,
-
-                            // ],
-                            //   ),
-                            // ),
 
                             // Quick reply options
                             Container(
@@ -671,13 +661,15 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                               ? Colors.red
                                               : Colors.grey,
                                         ),
-                                        onPressed: () {
-                                          if (isListening) {
-                                            _stopListening();
-                                          } else {
-                                            _startListening();
-                                          }
-                                        },
+                                        onPressed: _isInLevelTest 
+                                          ? null  // 레벨 테스트 중일 때는 비활성화
+                                          : () {
+                                              if (isListening) {
+                                                _stopListening();
+                                              } else {
+                                                _startListening();
+                                              }
+                                            },
                                       );
                                     },
                                   ),
@@ -702,7 +694,9 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                         controller:
                                             _textController, // 입력 필드에 컨트롤러 추가
                                         decoration: InputDecoration(
-                                          hintText: '메시지 보내기',
+                                          hintText: _isInLevelTest 
+                                            ? '영어로 답변해 주세요...' 
+                                            : '메시지 보내기',
                                           hintStyle:
                                               TextStyle(color: Colors.grey),
                                           border: InputBorder.none,
@@ -711,8 +705,10 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.send,
-                                        color: Colors.grey),
+                                    icon: Icon(
+                                      Icons.send,
+                                      color: _isInLevelTest ? Colors.blue : Colors.grey,
+                                    ),
                                     onPressed: _sendMessage,
                                   ),
                                 ],
