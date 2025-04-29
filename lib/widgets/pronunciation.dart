@@ -3,13 +3,18 @@ import 'dart:convert';
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class PronunciationAssessment extends StatefulWidget {
   final String course;
   final String chapter;
   final String section;
+  final String text;
 
-  const PronunciationAssessment(this.course, this.chapter, this.section,
+  const PronunciationAssessment(
+      this.course, this.chapter, this.section, this.text,
       {Key? key})
       : super(key: key);
 
@@ -25,6 +30,16 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   Map<String, dynamic>? _assessmentResult;
   List<Map<String, dynamic>>? _wordResults;
   List<String>? _conversationData;
+  final FlutterTts _flutterTts = FlutterTts();
+
+  final errorCounts = {
+    'Mispronunciation': 0,
+    'Omission': 0,
+    'Insertion': 0,
+    'Unnecessary pause': 0,
+    'Missing pause': 0,
+    'Monotone': 0,
+  };
 
   // For web audio recording
   html.MediaRecorder? _recorder;
@@ -35,12 +50,72 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   @override
   void initState() {
     super.initState();
-    _fetchConversationData();
+    _loadConversationDataWithCache();
   }
 
-  Future<void> _fetchConversationData() async {
+  String _formatDuration(double? seconds) {
+    if (seconds == null || seconds.isInfinite || seconds.isNaN) {
+      return '00:00';
+    }
+    final int minutes = seconds ~/ 60;
+    final int remainingSeconds = seconds.toInt() % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  // Generate a unique cache key
+  String _generateCacheKey() {
+    final String payloadString =
+        "${widget.course}|${widget.chapter}|${widget.section}|${widget.text}";
+    return md5.convert(utf8.encode(payloadString)).toString();
+  }
+
+  // Load conversation data with cache
+  Future<void> _loadConversationDataWithCache() async {
+    final cacheKey = _generateCacheKey();
+
+    try {
+      // Try to load from cache
+      final cachedData = await _loadCachedConversationData(cacheKey);
+
+      if (cachedData != null && cachedData.isNotEmpty) {
+        // Use cached data
+        setState(() {
+          _conversationData = cachedData;
+        });
+      } else {
+        // Fetch from API if not in cache
+        await _fetchConversationDataFromApi(cacheKey);
+      }
+    } catch (e) {
+      print("Error loading cached conversation data: $e");
+      // Fallback to API if cache fails
+      await _fetchConversationDataFromApi(cacheKey);
+    }
+  }
+
+  // Load cached conversation data
+  Future<List<String>?> _loadCachedConversationData(String cacheKey) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? cachedData = prefs.getString('conversation_data_$cacheKey');
+
+    if (cachedData != null) {
+      return List<String>.from(jsonDecode(cachedData));
+    }
+    return null;
+  }
+
+  // Save conversation data to cache
+  Future<void> _cacheConversationData(
+      String cacheKey, List<String> dataToCache) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'conversation_data_$cacheKey', jsonEncode(dataToCache));
+  }
+
+  // Fetch conversation data from API
+  Future<void> _fetchConversationDataFromApi(String cacheKey) async {
     final url = Uri.parse(
-        'http://192.168.0.147:8000/conversation?course=${widget.course}&chapter=${widget.chapter}&section=${widget.section}');
+        'http://192.168.0.147:8000/conversation?course=${widget.course}&chapter=${widget.chapter}&section=${widget.section}&text=${widget.text}');
     try {
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',
@@ -48,9 +123,13 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('Conversation data: $data');
+        final conversation = List<String>.from(data['conversation']);
+
+        // Cache the data
+        await _cacheConversationData(cacheKey, conversation);
+
         setState(() {
-          _conversationData = List<String>.from(data['conversation']);
+          _conversationData = conversation;
         });
       } else {
         print('Failed to fetch conversation data: ${response.statusCode}');
@@ -222,6 +301,17 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                   'accuracyScore': word['accuracy_score'],
                   'errorType': word['error_type'],
                 }));
+
+        for (final word in _wordResults!) {
+          final errorType = word['errorType'];
+          if (errorCounts.containsKey(errorType)) {
+            errorCounts[errorType] = errorCounts[errorType]! + 1;
+          }
+        }
+
+        // 오류 카운트를 UI에서 사용할 수 있도록 상태에 저장하거나 다른 곳에 전달 가능
+        print('Error counts: $errorCounts');
+
         _isProcessing = false;
       });
     } catch (e) {
@@ -341,6 +431,30 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                             ),
                             textAlign: TextAlign.center,
                           ),
+// Add speaker button
+                          Align(
+                            alignment: Alignment.bottomRight,
+                            child: IconButton(
+                              icon: const Icon(Icons.volume_up,
+                                  color: Colors.blue),
+                              onPressed: () async {
+                                if (_conversationData != null &&
+                                    _currentIndex < _conversationData!.length) {
+                                  final textToSpeak =
+                                      _conversationData![_currentIndex];
+                                  print('Playing text: $textToSpeak');
+
+                                  // Use FlutterTTS to speak the text
+                                  await _flutterTts
+                                      .setLanguage("en-US"); // Set the language
+                                  await _flutterTts
+                                      .setSpeechRate(0.8); // Adjust speech rate
+                                  await _flutterTts
+                                      .speak(textToSpeak); // Speak the text
+                                }
+                              },
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -409,27 +523,6 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
               const SizedBox(height: 16),
 
-              // Play button
-              if (_audioPlayer != null)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _audioPlayer!.play();
-                  },
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text(
-                    '재생',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-
               if (_isProcessing)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
@@ -461,7 +554,50 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          '평과 결과:',
+                          '발음 점수',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // 원형 점수 표시
+                        Center(
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              SizedBox(
+                                width: 150,
+                                height: 150,
+                                child: CircularProgressIndicator(
+                                  value:
+                                      _assessmentResult!['pronunciationScore'] /
+                                          100,
+                                  strokeWidth: 12,
+                                  backgroundColor: Colors.grey[700],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    _getScoreColor(_assessmentResult![
+                                        'pronunciationScore']),
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                _assessmentResult!['pronunciationScore']
+                                    .round()
+                                    .toString(),
+                                style: TextStyle(
+                                  fontSize: 50,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        const Text(
+                          '점수 분석 결과',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
@@ -469,16 +605,29 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildScoreRow(
-                            '발음 점수', _assessmentResult!['pronunciationScore']),
-                        _buildScoreRow(
+                        _buildScoreBar(
                             '정확도 점수', _assessmentResult!['accuracyScore']),
-                        _buildScoreRow(
-                            '완성도 점수', _assessmentResult!['completenessScore']),
-                        _buildScoreRow(
+                        const SizedBox(height: 12),
+                        _buildScoreBar(
                             '유창성 점수', _assessmentResult!['fluencyScore']),
-                        _buildScoreRow(
+                        const SizedBox(height: 12),
+                        _buildScoreBar(
+                            '완성도 점수', _assessmentResult!['completenessScore']),
+                        const SizedBox(height: 12),
+                        _buildScoreBar(
                             '운율 점수', _assessmentResult!['prosodyScore']),
+                        const SizedBox(height: 20),
+                        // 색상 범례
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            _buildColorLegend(Colors.red, '0 ~ 59'),
+                            const SizedBox(width: 20),
+                            _buildColorLegend(Colors.orange[700]!, '60 ~ 79'),
+                            const SizedBox(width: 20),
+                            _buildColorLegend(Colors.green, '80 ~ 100'),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -486,94 +635,220 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
                 const SizedBox(height: 24),
 
-                // Word-by-word results
                 if (_wordResults != null && _wordResults!.isNotEmpty) ...[
-                  const Text(
-                    'Word-by-word Analysis:',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24, bottom: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '단어별 분석',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.white,
+                          ),
+                        ),
+                        // 오른쪽에 오류 개수 표시
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _wordResults!.length,
-                    itemBuilder: (context, index) {
-                      final word = _wordResults![index];
-                      final errorType = word['errorType'];
-
-                      final errorTypeTranslations = {
-                        'Mispronunciation': '잘못된 발음',
-                        'Omission': '생략',
-                        'Insertion': '삽입',
-                        'Unnecessary pause': '불필요한 멈춤',
-                        'Missing pause': '누락된 멈춤',
-                        'Monotone': '모노톤',
-                      };
-
-                      final translatedErrorType =
-                          errorTypeTranslations[errorType] ?? '알 수 없는 오류';
-
-                      Color color;
-                      if (errorType == 'None') {
-                        color = Colors.green;
-                      } else if (errorType == 'Omission') {
-                        color = Colors.orange;
-                      } else {
-                        color = Colors.red;
-                      }
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        color: color.withOpacity(0.1),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 8, horizontal: 12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // Word on the left
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  word['word'],
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: color,
-                                    fontSize: 14, // 줄어든 높이에 맞게 폰트 크기 조정
-                                  ),
-                                ),
-                              ),
-                              // Accuracy and Error on the right
-                              Expanded(
-                                flex: 3,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '정확성: ${word['accuracyScore']?.toStringAsFixed(1) ?? "N/A"}',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade300,
-                                        fontSize: 12, // 줄어든 높이에 맞게 폰트 크기 조정
-                                      ),
-                                    ),
-                                    Text(
-                                      '오류: $translatedErrorType',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade300,
-                                        fontSize: 12, // 줄어든 높이에 맞게 폰트 크기 조정
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                  // 오디오 플레이어 UI
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[900],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            _audioPlayer != null && _audioPlayer!.paused
+                                ? Icons.play_circle_filled
+                                : Icons.pause_circle_filled,
+                            color: Colors.blue,
+                          ),
+                          onPressed: () {
+                            if (_audioPlayer != null) {
+                              if (_audioPlayer!.paused) {
+                                _audioPlayer!.play();
+                              } else {
+                                _audioPlayer!.pause();
+                              }
+                              setState(() {});
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _audioPlayer != null
+                              ? _formatDuration(
+                                  _audioPlayer!.currentTime?.toDouble())
+                              : '00:00',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderThemeData(
+                              thumbColor: Colors.blue,
+                              activeTrackColor: Colors.blue,
+                              inactiveTrackColor: Colors.grey[700],
+                              trackHeight: 4.0,
+                            ),
+                            child: Slider(
+                              value:
+                                  (_audioPlayer?.currentTime ?? 0).toDouble(),
+                              max: (_audioPlayer?.duration?.isFinite == true
+                                      ? _audioPlayer!.duration!
+                                      : 1)
+                                  .toDouble(),
+                              onChanged: (value) {
+                                if (_audioPlayer != null) {
+                                  _audioPlayer!.currentTime = value;
+                                  setState(() {});
+                                }
+                              },
+                            ),
                           ),
                         ),
-                      );
-                    },
+                        const SizedBox(width: 8),
+                        Text(
+                          _audioPlayer != null
+                              ? _formatDuration(
+                                  _audioPlayer!.duration?.toDouble())
+                              : '00:00',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.download, color: Colors.white),
+                          onPressed: () {
+                            if (_audioPlayer != null) {
+                              html.AnchorElement()
+                                ..href = _audioPlayer!.src
+                                ..download = 'recording.webm'
+                                ..click();
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 텍스트 표시 영역
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[900],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 8,
+                      children: _wordResults!.map<Widget>((word) {
+                        final errorType = word['errorType'];
+
+                        // 오류 유형에 따라 색상 설정
+                        Color getWordColor(String errorType) {
+                          switch (errorType) {
+                            case 'Mispronunciation':
+                              return Colors.red;
+                            case 'Omission':
+                              return Colors.orange[700]!;
+                            case 'Insertion':
+                              return Colors.yellow;
+                            case 'Unnecessary pause':
+                              return Colors.purple;
+                            case 'Missing pause':
+                              return Colors.blue;
+                            case 'Monotone':
+                              return Colors.green;
+                            default:
+                              return Colors.grey[800]!;
+                          }
+                        }
+
+                        return _buildWordBox(
+                          word['word'],
+                          getWordColor(errorType),
+                          Colors.white,
+                          showErrorCount: errorType != 'None',
+                          errorCount: word['accuracyScore'],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 오류 유형 범례
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[900],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildLegendItem(
+                              errorCounts['Mispronunciation'].toString(),
+                              '잘못된 발음',
+                              color: Colors.red,
+                              tooltipMessage: '발음을 잘못한 경우입니다.',
+                            ),
+                            _buildLegendItem(
+                              errorCounts['Omission'].toString(),
+                              '생략',
+                              color: Colors.orange,
+                              tooltipMessage: '단어를 생략한 경우입니다.',
+                            ),
+                            _buildLegendItem(
+                              errorCounts['Insertion'].toString(),
+                              '삽입',
+                              color: Colors.yellow,
+                              tooltipMessage: '불필요한 단어를 삽입한 경우입니다.',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildLegendItem(
+                              errorCounts['Unnecessary pause'].toString(),
+                              '불필요한 멈춤',
+                              tooltipMessage: '단어를 발음할 때 불필요하게 멈춘 경우입니다.',
+                              color: Colors.purple,
+                            ),
+                            _buildLegendItem(
+                              errorCounts['Missing pause'].toString(),
+                              '누락된 멈춤',
+                              color: Colors.blue,
+                              tooltipMessage: '단어를 발음할 때 멈추지 않고 발음한 경우입니다.',
+                            ),
+                            _buildLegendItem(
+                              errorCounts['Monotone'].toString(),
+                              '모노톤',
+                              tooltipMessage:
+                                  '단어을 음조나 감정표현 없이 평탄하고 생기가 없는 톤으로 발음하고 있습니다.',
+                              color: Colors.green,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ],
@@ -585,34 +860,260 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   }
 }
 
-Widget _buildScoreRow(String label, dynamic score) {
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 18,
-            color: Colors.white,
-          ),
+Widget _buildColorLegend(Color color, String label) {
+  return Row(
+    children: [
+      Container(
+        width: 20,
+        height: 20,
+        color: color,
+      ),
+      const SizedBox(width: 5),
+      Text(
+        label,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
         ),
-        Text(
-          score is num ? score.toStringAsFixed(1) : 'N/A',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: 
-            score is num && score >= 70
-                ? Colors.green
-                : score is num && score >= 20
-                    ? Colors.orange
-                    : Colors.red,
-          ),
-        ),
-      ],
-    ),
+      ),
+    ],
   );
 }
+
+// 점수에 따른 색상 반환 함수
+Color _getScoreColor(dynamic score) {
+  if (score is num) {
+    if (score >= 80) return Colors.green;
+    if (score >= 60) return Colors.orange[700]!;
+    return Colors.red;
+  }
+  return Colors.grey;
+}
+
+// 점수 바 위젯
+Widget _buildScoreBar(String label, dynamic score) {
+  final double scoreValue = score is num ? score.toDouble() : 0.0;
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+          Text(
+            '${scoreValue.round()} / 100',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 5),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: LinearProgressIndicator(
+          value: scoreValue / 100,
+          backgroundColor: Colors.grey[700],
+          valueColor: AlwaysStoppedAnimation<Color>(_getScoreColor(scoreValue)),
+          minHeight: 8,
+        ),
+      ),
+    ],
+  );
+}
+
+// 단어 상자 위젯
+Widget _buildWordBox(String text, Color bgColor, Color textColor,
+    {bool showUnderline = false,
+    bool showErrorCount = false,
+    int errorCount = 0}) {
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 2),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color: bgColor,
+      borderRadius: BorderRadius.circular(4),
+      border: showUnderline
+          ? Border(
+              bottom: BorderSide(
+              color: showUnderline ? Colors.purple : Colors.transparent,
+              width: 2,
+            ))
+          : null,
+    ),
+    child: showErrorCount
+        ? Stack(
+            alignment: Alignment.topRight,
+            children: [
+              Text(
+                text,
+                style: TextStyle(color: textColor),
+              ),
+              // Container(
+              //   width: 16,
+              //   height: 16,
+              //   alignment: Alignment.center,
+              //   decoration: const BoxDecoration(
+              //     color: Colors.red,
+              //     shape: BoxShape.circle,
+              //   ),
+              //   child: Text(
+              //     errorCount.toString(),
+              //     style: const TextStyle(
+              //       color: Colors.white,
+              //       fontSize: 10,
+              //       fontWeight: FontWeight.bold,
+              //     ),
+              //   ),
+              // ),
+            ],
+          )
+        : Text(
+            text,
+            style: TextStyle(color: textColor),
+          ),
+  );
+}
+
+// 범례 아이템 위젯
+Widget _buildLegendItem(String count, String label,
+    {Color color = Colors.white, String tooltipMessage = ''}) {
+  return Row(
+    children: [
+      Container(
+        width: 24,
+        height: 24,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.grey[800],
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          count,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Text(
+        label,
+        style: TextStyle(
+          color: color,
+        ),
+      ),
+      const SizedBox(width: 4),
+      Tooltip(
+        message: tooltipMessage,
+        child: const Icon(
+          Icons.info_outline,
+          size: 16,
+          color: Colors.white54,
+        ),
+      ),
+    ],
+  );
+}
+
+// Note: The above code is a complete implementation of the PronunciationAssessment widget.
+
+                // Word-by-word results
+                // if (_wordResults != null && _wordResults!.isNotEmpty) ...[
+                //   const Text(
+                //     'Word-by-word Analysis:',
+                //     style: TextStyle(
+                //       fontWeight: FontWeight.bold,
+                //       fontSize: 18,
+                //     ),
+                //   ),
+                //   const SizedBox(height: 8),
+                //   ListView.builder(
+                //     shrinkWrap: true,
+                //     physics: const NeverScrollableScrollPhysics(),
+                //     itemCount: _wordResults!.length,
+                //     itemBuilder: (context, index) {
+                //       final word = _wordResults![index];
+                //       final errorType = word['errorType'];
+
+                //       final errorTypeTranslations = {
+                //         'Mispronunciation': '잘못된 발음',
+                //         'Omission': '생략',
+                //         'Insertion': '삽입',
+                //         'Unnecessary pause': '불필요한 멈춤',
+                //         'Missing pause': '누락된 멈춤',
+                //         'Monotone': '모노톤',
+                //       };
+
+                //       final translatedErrorType =
+                //           errorTypeTranslations[errorType] ?? '알 수 없는 오류';
+
+                //       Color color;
+                //       if (errorType == 'None') {
+                //         color = Colors.green;
+                //       } else if (errorType == 'Omission') {
+                //         color = Colors.orange;
+                //       } else {
+                //         color = Colors.red;
+                //       }
+
+                //       return Card(
+                //         margin: const EdgeInsets.only(bottom: 8),
+                //         color: color.withOpacity(0.1),
+                //         child: Padding(
+                //           padding: const EdgeInsets.symmetric(
+                //               vertical: 8, horizontal: 12),
+                //           child: Row(
+                //             crossAxisAlignment: CrossAxisAlignment.center,
+                //             children: [
+                //               // Word on the left
+                //               Expanded(
+                //                 flex: 2,
+                //                 child: Text(
+                //                   word['word'],
+                //                   style: TextStyle(
+                //                     fontWeight: FontWeight.bold,
+                //                     color: color,
+                //                     fontSize: 14, // 줄어든 높이에 맞게 폰트 크기 조정
+                //                   ),
+                //                 ),
+                //               ),
+                //               // Accuracy and Error on the right
+                //               Expanded(
+                //                 flex: 3,
+                //                 child: Column(
+                //                   crossAxisAlignment: CrossAxisAlignment.end,
+                //                   children: [
+                //                     Text(
+                //                       '정확성: ${word['accuracyScore']?.toStringAsFixed(1) ?? "N/A"}',
+                //                       style: TextStyle(
+                //                         color: Colors.grey.shade300,
+                //                         fontSize: 12, // 줄어든 높이에 맞게 폰트 크기 조정
+                //                       ),
+                //                     ),
+                //                     Text(
+                //                       '오류: $translatedErrorType',
+                //                       style: TextStyle(
+                //                         color: Colors.grey.shade300,
+                //                         fontSize: 12, // 줄어든 높이에 맞게 폰트 크기 조정
+                //                       ),
+                //                     ),
+                //                   ],
+                //                 ),
+                //               ),
+                //             ],
+                //           ),
+                //         ),
+                //       );
+                //     },
+                //   ),
+                // ],

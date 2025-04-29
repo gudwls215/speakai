@@ -39,6 +39,11 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
   FreeTalkProvider _freeTalkProvider = FreeTalkProvider();
   bool _isLoading = false;
   String _recognizedText = "";
+  String _hintText = "무슨 말을 해야할지 모르겠다면 힌트를 눌러보세요!";
+  String _hintTextFromAPI = "";
+  String _commentKoFromAPI = "";
+  bool _isLoadingHint = false;
+  bool _showCommentKo = false;
 
   @override
   void initState() {
@@ -138,36 +143,6 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
     ),
   ];
 
-  // Future<void> fetchFeedback({
-  //   required String userId,
-  //   required String userMessage,
-  //   required String preConversation,
-  // }) async {
-  //   final Uri uri =
-  //       Uri.parse("http://192.168.0.147:8000/feedback").replace(queryParameters: {
-  //     'user_id': userId,
-  //     'user_message': userMessage,
-  //     'pre_conversation': preConversation,
-  //   });
-
-  //   try {
-  //     final response = await http.get(uri);
-
-  //     if (response.statusCode == 200) {
-  //       final data = json.decode(response.body);
-  //       final fixedText = data['response'];
-  //       final comment_ko = data['comment_ko'];
-
-  //       print('fixedText: $fixedText');
-  //       print('commentKo: $comment_ko');
-  //     } else {
-  //       print('API 호출 실패: ${response.statusCode}');
-  //     }
-  //   } catch (e) {
-  //     print('예외 발생: $e');
-  //   }
-  // }
-
   void _sendMessage() async {
     final message = _textController.text;
 
@@ -183,6 +158,8 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
           widget.postId);
       _textController.clear();
       _isLoading = true;
+
+      _hintTextFromAPI = "";
 
       // 봇 메시지 초기 생성
       _freeTalkProvider.add(
@@ -265,6 +242,114 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
         size: 24.0,
       ),
     );
+  }
+
+  Widget _buildDashedHintBox() {
+    return GestureDetector(
+      onTap: _fetchHint,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12.0), // 둥근 모서리
+          border: Border.all(
+            color: Colors.grey,
+            width: 2.0,
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                _hintTextFromAPI.isNotEmpty ? _hintTextFromAPI : _hintText,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis, // 텍스트가 길 경우 생략
+                maxLines: 2,
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                _hintTextFromAPI.isNotEmpty
+                    ? Icons.copy
+                    : Icons.lightbulb_outline,
+                color: Colors.grey,
+                size: 20.0,
+              ),
+              onPressed: _hintTextFromAPI.isNotEmpty
+                  ? () {
+                      // 힌트 텍스트를 입력 필드에 복사
+                      setState(() {
+                        _textController.text = _hintTextFromAPI;
+                        _textController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _textController.text.length),
+                        );
+                      });
+                    }
+                  : null, // 기본 아이콘일 경우 아무 동작도 하지 않음
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _fetchHint() async {
+    if (_isLoadingHint || _hintTextFromAPI.isNotEmpty)
+      return; // 이미 힌트가 있으면 동작하지 않음
+
+    setState(() {
+      _isLoadingHint = true;
+    });
+
+    // 가장 최근 AI 메시지를 가져오기
+    final messages = _freeTalkProvider.getMessagesNotifier(widget.postId).value;
+    final recentAiMessage = messages
+        .lastWhere(
+          (message) => !message.isUser, // AI 메시지 필터링
+          orElse: () =>
+              TalkMessage(text: "", isUser: false, postId: widget.postId),
+        )
+        .text;
+
+    final Uri uri =
+        Uri.parse("http://192.168.0.147:8000/hint").replace(queryParameters: {
+      'user_id': "ttm",
+      'pre_conversation': recentAiMessage, // 가장 최근 AI 메시지
+      'user_role': widget.userRole, // 사용자 역할
+      'ai_role': widget.aiRole, // AI 역할
+    });
+
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body); // JSON 디코딩
+        final exampleAnswer = data['response']['example_answer']
+            ?.replaceAll('"', '') // "" 제거
+            .trim(); // 앞뒤 공백 제거
+
+        setState(() {
+          _hintTextFromAPI = exampleAnswer ?? ""; // example_answer 값 설정
+          _isLoadingHint = false;
+        });
+      } else {
+        print('API 호출 실패: ${response.statusCode}');
+        setState(() {
+          _isLoadingHint = false;
+        });
+      }
+    } catch (e) {
+      print('예외 발생: $e');
+      setState(() {
+        _isLoadingHint = false;
+      });
+    }
   }
 
   @override
@@ -350,21 +435,13 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
             child: Column(
               children: [
                 // Blue tip box (only show for demo purposes)
-                if (_messages.length == 4)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 8.0),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12.0, vertical: 8.0),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    child: Text(
-                      // "무슨 말을 해야할지 모르겠다면 힌트를 눌러보세요!",
-                      widget.postId,
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
+
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8.0),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0, vertical: 8.0),
+                  child: _buildDashedHintBox(),
+                ),
                 // Input field
                 Row(
                   children: [
@@ -491,7 +568,7 @@ class _TalkMessageState extends State<TalkMessage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          _translateTextFromAPI = data['translation']; 
+          _translateTextFromAPI = data['translation'];
           _showTranslate = true;
           _isLoadingTranslate = false;
         });
@@ -518,9 +595,6 @@ class _TalkMessageState extends State<TalkMessage> {
       _isLoadingFeedback = true;
     });
 
-    print(_commentKoFromAPI);
-    print(_fixedTextFromAPI);
-
     // Get the provider to access previous messages
     final freeTalkProvider =
         Provider.of<FreeTalkProvider>(context, listen: false);
@@ -528,17 +602,9 @@ class _TalkMessageState extends State<TalkMessage> {
         .getMessagesNotifier(freeTalkProvider.getCurrentPostId())
         .value;
 
-    print("freeTalkProvider.getCurrentPostId(): " +
-        freeTalkProvider.getCurrentPostId());
-    print("messages: " + messages.toString());
-    print("widget.text: " + widget.text);
-    print("widget.isUser: " + widget.isUser.toString());
-
     // Find the current message index
     final currentIndex = messages.indexWhere(
         (msg) => msg.isUser == widget.isUser && msg.text == widget.text);
-
-    print("currentIndex: " + currentIndex.toString());
 
     if (currentIndex <= 0) {
       setState(() {
@@ -599,6 +665,8 @@ class _TalkMessageState extends State<TalkMessage> {
                 widget.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              if (widget.isUser)
+                const SizedBox(width: 20),
               if (widget.isUser) // 좌측에 * 버튼 추가
                 Align(
                   alignment: Alignment.center,

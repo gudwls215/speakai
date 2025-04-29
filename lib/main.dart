@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:speakai/providers/chat_provider.dart';
 import 'package:speakai/providers/free_talk_provider.dart';
@@ -31,6 +33,12 @@ class MyApp extends StatelessWidget {
           primarySwatch: Colors.blue,
           scaffoldBackgroundColor: Colors.black,
           useMaterial3: true,
+        ),
+        scrollBehavior: const MaterialScrollBehavior().copyWith(
+          dragDevices: const {
+            PointerDeviceKind.touch,
+            PointerDeviceKind.mouse,
+          },
         ),
         home: const MyHomePage(title: 'SpeakAI'));
   }

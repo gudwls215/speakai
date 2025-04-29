@@ -63,4 +63,20 @@ class ChatProvider extends ChangeNotifier {
   ChatMessage getMessage(int index) {
     return messages.value[index];
   }
+
+  ChatMessage get lastMessage {
+    if (messages.value.isNotEmpty) {
+      return messages.value.last;
+    } else {
+      throw Exception("No messages available");
+    }
+  }
+
+  void removeLastMessage() {
+    if (messages.value.isNotEmpty) {
+      final updatedMessages = List<ChatMessage>.from(messages.value);
+      updatedMessages.removeLast();
+      messages.value = updatedMessages; // 리스트 업데이트
+    }
+  }
 }
