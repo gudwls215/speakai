@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:speakai/widgets/free_talk_message.dart';
+import 'package:speakai/widgets/page/free_talk_page.dart';
 
 class FreeTalkTab extends StatelessWidget {
   const FreeTalkTab({Key? key}) : super(key: key);

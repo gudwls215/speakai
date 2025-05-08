@@ -7,10 +7,10 @@ import 'package:speakai/widgets/chat_message.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:speakai/providers/chat_provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:speakai/widgets/pronunciation.dart';
+import 'package:speakai/widgets/page/pronunciation_page.dart';
 import 'dart:convert';
 
-import 'package:speakai/widgets/voca_multiple.dart';
+import 'package:speakai/widgets/page/voca_multiple_page.dart';
 
 class ChatBotInput extends StatefulWidget {
   @override
