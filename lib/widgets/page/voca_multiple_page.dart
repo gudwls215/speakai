@@ -434,7 +434,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
   }
 
   List<TextSpan> _buildQuestionTextSpans(String question) {
-    final parts = question.split('___');
+    final parts = question.split('_____');
     if (parts.length == 1) {
       // No blanks
       return [TextSpan(text: question)];
@@ -443,7 +443,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
     return [
       TextSpan(text: parts[0]),
       TextSpan(
-        text: '___',
+        text: '_____',
         style: TextStyle(
           color: Colors.grey[600],
           backgroundColor: Colors.grey[700],

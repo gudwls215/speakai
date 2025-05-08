@@ -7,6 +7,7 @@ import 'package:speakai/widgets/chat_message.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:speakai/providers/chat_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:speakai/widgets/pronunciation.dart';
 import 'dart:convert';
 
 import 'package:speakai/widgets/voca_multiple.dart';
@@ -67,15 +68,8 @@ class _ChatBotInputState extends State<ChatBotInput> {
         _chatProvider.gameTypeUpdate(gameType);
 
         switch (intent) {
-          case "game":
-            // 게임 관련 처리
-            break;
-          case "help":
-            // 도움 요청 처리
-            break;
-          case "vocabulary":
-            // 단어 연습 관련 처리
-            print('단어 연습 관련 처리');
+          case "pronunciation":
+            print('발음 연습 관련 처리');
             if (datas.isNotEmpty) {
               final metadata = datas[0]['metadata']; // metadata 접근
 
@@ -88,16 +82,30 @@ class _ChatBotInputState extends State<ChatBotInput> {
                 ));
               });
             }
+            break;
+          case "help":
+            break;
+          case "vocabulary":
+            print('단어 연습 관련 처리');
+            if (datas.isNotEmpty) {
+              final metadata = datas[0]['metadata']; // metadata 접근
+
+              setState(() {
+                _chatProvider.add(ChatMessage(
+                  widget:
+                      _buildRecommendationCard(metadata, intent), // 추천 카드 추가
+                  isUser: false, text: '',
+                ));
+              });
+            }
 
             break;
           case "course":
-            // 코스 관련 처리
             print('코스 관련 처리');
             if (datas.isNotEmpty) {
               final metadata = datas[0]['metadata']; // metadata 접근
 
               setState(() {
-                // 추천 카드 추가
                 _chatProvider.add(ChatMessage(
                   widget:
                       _buildRecommendationCard(metadata, intent), // 추천 카드 추가
@@ -124,12 +132,16 @@ class _ChatBotInputState extends State<ChatBotInput> {
     } catch (e) {
       print('예외 발생: $e');
     }
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   void chatBotResponse(String message) async {
     Map<String, String> parameters = {
       'user_message': message,
-      'user_id': _chatProvider.getUserId,
+      'user_id': "ttm",
       'stream': 'true',
     };
 
@@ -347,62 +359,70 @@ class _ChatBotInputState extends State<ChatBotInput> {
   }
 
   // 레벨 평가 API 호출 함수
-Future<void> _fetchLevelAssessment(
-    List<String> userResponses, List<dynamic> questions) async {
-  final Uri uri = Uri.parse("http://192.168.0.147:8000/level/assessment");
+  Future<void> _fetchLevelAssessment(
+      List<String> userResponses, List<dynamic> questions) async {
+    final Uri uri = Uri.parse("http://192.168.0.147:8000/level/assessment");
 
-  // API에 보낼 데이터 구성
-  List<Map<String, String>> answersData = [];
-  for (int i = 0; i < userResponses.length; i++) {
-    print("레벨 테스트 질문: ${questions[i]['text']}");
-    print("레벨 테스트 답변: ${userResponses[i]}");
+    // API에 보낼 데이터 구성
+    List<Map<String, String>> answersData = [];
+    for (int i = 0; i < userResponses.length; i++) {
+      print("레벨 테스트 질문: ${questions[i]['text']}");
+      print("레벨 테스트 답변: ${userResponses[i]}");
 
-    answersData.add({
-      "answer": userResponses[i],
-      "question": questions[i]['text']!,
-      "question_id": questions[i]['id']!,
-    });
-  }
-
-  final Map<String, dynamic> requestData = {
-    "user_id": "ttm",
-    "stream": false,
-    "answers": answersData,
-  };
-
-  try {
-    final response = await http.post(
-      uri,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode(requestData),
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(utf8.decode(response.bodyBytes));
-
-      // 결과 표시
-      setState(() {
-        // "레벨 테스트 결과를 분석 중입니다..." 메시지 제거
-        if (_chatProvider.isNotEmpty &&
-            !_chatProvider.isLastMessageUser &&
-            _chatProvider.lastMessage.text ==
-                "레벨 테스트 결과를 분석 중입니다...") {
-          _chatProvider.removeLastMessage();
-        }
-
-        // 마지막 메시지 업데이트 (분석 중 -> 결과)
-        _chatProvider.add(ChatMessage(
-          text: _buildLevelAssessmentResult(data),
-          isUser: false,
-        ));
+      answersData.add({
+        "answer": userResponses[i],
+        "question": questions[i]['text']!,
+        "question_id": questions[i]['id']!,
       });
+    }
 
-      // 스크롤 업데이트
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-      });
-    } else {
-      print('API 호출 실패: ${response.statusCode}');
+    final Map<String, dynamic> requestData = {
+      "user_id": "ttm",
+      "stream": false,
+      "answers": answersData,
+    };
+
+    try {
+      final response = await http.post(
+        uri,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(requestData),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(utf8.decode(response.bodyBytes));
+
+        // 결과 표시
+        setState(() {
+          // "레벨 테스트 결과를 분석 중입니다..." 메시지 제거
+          if (_chatProvider.isNotEmpty &&
+              !_chatProvider.isLastMessageUser &&
+              _chatProvider.lastMessage.text == "레벨 테스트 결과를 분석 중입니다...") {
+            _chatProvider.removeLastMessage();
+          }
+
+          // 마지막 메시지 업데이트 (분석 중 -> 결과)
+          _chatProvider.add(ChatMessage(
+            text: _buildLevelAssessmentResult(data),
+            isUser: false,
+          ));
+        });
+
+        // 스크롤 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+      } else {
+        print('API 호출 실패: ${response.statusCode}');
+        setState(() {
+          _chatProvider.add(ChatMessage(
+            text: "레벨 테스트 평가 중 오류가 발생했습니다. 다시 시도해주세요.",
+            isUser: false,
+          ));
+        });
+      }
+    } catch (e) {
+      print('예외 발생: $e');
       setState(() {
         _chatProvider.add(ChatMessage(
           text: "레벨 테스트 평가 중 오류가 발생했습니다. 다시 시도해주세요.",
@@ -410,16 +430,7 @@ Future<void> _fetchLevelAssessment(
         ));
       });
     }
-  } catch (e) {
-    print('예외 발생: $e');
-    setState(() {
-      _chatProvider.add(ChatMessage(
-        text: "레벨 테스트 평가 중 오류가 발생했습니다. 다시 시도해주세요.",
-        isUser: false,
-      ));
-    });
   }
-}
 
   // 레벨 평가 결과 메시지 구성
   String _buildLevelAssessmentResult(Map<String, dynamic> data) {
@@ -531,6 +542,11 @@ Future<void> _fetchLevelAssessment(
         } catch (e) {
           setState(() {
             _isInLevelTest = false; // 에러 발생 시에도 레벨 테스트 모드 종료
+            _isLoading = false;
+            _chatProvider.add(ChatMessage(
+              text: "레벨 테스트 중 오류가 발생했습니다. 다시 시도해주세요.",
+              isUser: false,
+            ));
           });
           print('예외 발생: $e');
         }
@@ -538,16 +554,77 @@ Future<void> _fetchLevelAssessment(
         break;
       case "vocabulary":
         print("단어 모음집 열기");
-        // 단어 모음집 관련 로직 추가
+
+        setState(() {
+          _chatProvider.add(ChatMessage(
+            text: "단어 모음집",
+            isUser: true,
+          ));
+
+          _chatProvider.add(ChatMessage(
+            text:
+                "공부하실 단어 주제나 카테고리를 말씀해주세요. 예를 들어 '비즈니스 영어', '여행 영어', '토익 단어' 등을 입력하시면 관련 단어 모음집을 준비해 드립니다.",
+            isUser: false,
+          ));
+        });
+
+        // 스크롤 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+
+        // 사용자 입력을 기다리기 위해 대화형 모드 활성화
+        // (여기서는 특별한 플래그나 상태를 설정하지 않고, 사용자가 입력한 텍스트를
+        // fetchIntent 함수가 처리하도록 함)
+
         break;
+
       case "pronunciation":
         print("발음 연습 시작");
-        // 발음 연습 관련 로직 추가
+
+        setState(() {
+          _chatProvider.add(ChatMessage(
+            text: "발음 연습",
+            isUser: true,
+          ));
+
+          _chatProvider.add(ChatMessage(
+            text:
+                "어떤 발음을 연습하고 싶으신가요? 특정 단어나 발음하기 어려운 소리를 알려주시면 맞춤 발음 연습을 준비해 드릴게요. 예를 들어 'th 발음', 'r과 l 구분', '장모음과 단모음' 등을 입력해보세요.",
+            isUser: false,
+          ));
+        });
+
+        // 스크롤 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+
         break;
+
       case "course":
         print("강의 추천");
-        // 강의 추천 관련 로직 추가
+
+        setState(() {
+          _chatProvider.add(ChatMessage(
+            text: "강의 추천",
+            isUser: true,
+          ));
+
+          _chatProvider.add(ChatMessage(
+            text:
+                "어떤 목적의 강의를 찾고 계신가요? 예를 들어 '회화 능력 향상', '비즈니스 영어', '토익/토플 준비', '문법 공부' 등 원하시는 학습 목표나 관심 분야를 알려주시면 맞춤형 강의를 추천해 드릴게요.",
+            isUser: false,
+          ));
+        });
+
+        // 스크롤 업데이트
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
+
         break;
+
       default:
         print("알 수 없는 intent: $intent");
     }
@@ -575,9 +652,37 @@ Future<void> _fetchLevelAssessment(
   }
 
   Widget _buildRecommendationCard(metadata, intent) {
+    String title;
+    switch (intent) {
+      case "pronunciation":
+        title = '회원님이 요청한 발음 연습';
+        break;
+      case "vocabulary":
+        title = '회원님이 요청한 단어 모음집';
+        break;
+      case "course":
+        title = '회원님이 요청한 코스';
+        break;
+      default:
+        title = '회원님이 요청한 항목';
+    }
+
     return GestureDetector(
       onTap: () {
         switch (intent) {
+          case "pronunciation":
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PronunciationAssessment(
+                  metadata['COURSE'].toString(),
+                  metadata['CHAPTER'].toString(),
+                  metadata['SECTION'].toString(),
+                  metadata['WORD'].toString(),
+                ),
+              ),
+            );
+            break;
           case "vocabulary":
             Navigator.push(
               context,
@@ -600,7 +705,7 @@ Future<void> _fetchLevelAssessment(
         }
       },
       child: Container(
-        margin: EdgeInsets.only(bottom: 16.0),
+        margin: EdgeInsets.symmetric(horizontal: 16.0, vertical: 13.0),
         padding: EdgeInsets.all(16.0),
         decoration: BoxDecoration(
           color: Colors.grey.shade900,
@@ -618,7 +723,7 @@ Future<void> _fetchLevelAssessment(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    intent != "vocabulary" ? '회원님이 요청한 코스' : '회원님이 요청한 단어 모음집',
+                    title,
                     style: TextStyle(
                       color: Colors.grey,
                       fontSize: 14,

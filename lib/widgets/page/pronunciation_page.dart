@@ -170,6 +170,8 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
           _isRecording = true;
           _assessmentResult = null;
           _wordResults = null;
+
+          errorCounts.updateAll((key, value) => 0);
         });
       }
     } catch (e) {

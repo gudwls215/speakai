@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:speakai/widgets/pronunciation.dart';
+import 'package:speakai/widgets/page/pronunciation_page.dart';
 import 'package:speakai/widgets/section_title.dart.dart';
 import 'package:speakai/widgets/category_card.dart';
 import 'package:speakai/widgets/next_lesson_card.dart';
-import 'package:speakai/widgets/voca_multiple.dart';
+import 'package:speakai/widgets/page/voca_multiple_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});

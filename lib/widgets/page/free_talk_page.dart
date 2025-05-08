@@ -122,26 +122,6 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
     setState(() {});
   }
 
-  final List<TalkMessage> _messages = [
-    const TalkMessage(
-      isUser: false,
-      text: "Great! Where will you be staying during your visit?",
-      postId: "1",
-    ),
-    const TalkMessage(
-      isUser: true,
-      text: "hotel and airbnb",
-      fixedText: "I'll be staying in a hotel and an Airbnb.",
-      commentKo:
-          "주어와 동사를 추가해서 문장을 완전하게 만들어야 자연스러워요. 또, 'hotel'과 'Airbnb' 앞에 각각 'a'와 'an' 관련 관사를 넣어 주면 더 정확해요.",
-      postId: "2",
-    ),
-    const TalkMessage(
-      isUser: false,
-      text: "Nice choice! Which hotel or Airbnb will you be staying at?",
-      postId: "3",
-    ),
-  ];
 
   void _sendMessage() async {
     final message = _textController.text;
