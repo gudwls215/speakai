@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:speakai/widgets/free_talk_message.dart';
+import 'package:speakai/widgets/page/free_talk_page.dart';
 
 class FreeTalkProvider extends ChangeNotifier {
   final ValueNotifier<Map<String, List<TalkMessage>>> messages = ValueNotifier(<String, List<TalkMessage>>{});
