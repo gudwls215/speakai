@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:speakai/providers/chat_provider.dart';
 import 'package:speakai/providers/free_talk_provider.dart';
+import 'package:speakai/providers/lesson_provider.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/free_talk_tab.dart';
 import 'tabs/review_tab.dart';
@@ -16,6 +17,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => FreeTalkProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => LessonProvider()),
       ],
       child: const MyApp(),
     ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:speakai/widgets/home_page.dart';
-import 'package:speakai/widgets/course_page.dart';
+import 'package:speakai/widgets/page/home_page.dart';
+import 'package:speakai/widgets/page/course_page.dart';
 import 'package:speakai/widgets/chat_bot.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 

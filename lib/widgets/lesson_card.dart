@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:speakai/widgets/page/video_player_page.dart';
 
 class LessonCard extends StatefulWidget {
   final int index;
@@ -20,7 +21,13 @@ class _LessonCardState extends State<LessonCard> {
 
   // Menu options for each lesson
   final List<Map<String, dynamic>> menuOptions = [
-    {'icon': Icons.play_arrow, 'text': '오늘의 수업', 'color': Colors.amber},
+    {
+      'icon': Icons.play_arrow,
+      'text': '오늘의 수업',
+      'color': Colors.amber,
+      'title': '중년 성인의 호흡 불편 평가',
+      'videoFile': 'nursing_1.1.mp4',
+    },
     {'icon': Icons.mic, 'text': '스피킹 연습', 'color': Colors.pink[300]},
     {'icon': Icons.people, 'text': '롤플레잉', 'color': Colors.purple[300]},
   ];
@@ -71,9 +78,16 @@ class _LessonCardState extends State<LessonCard> {
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500)),
                         if (widget.subtitle.isNotEmpty)
-                          Text(widget.subtitle,
-                              style: const TextStyle(
-                                  color: Colors.grey, fontSize: 12)),
+                          Text(
+                            widget.subtitle,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                            maxLines: 2, // Limit to 2 lines
+                            overflow: TextOverflow
+                                .ellipsis, // Add ellipsis if text overflows
+                          ),
                       ],
                     ),
                   ),
@@ -152,35 +166,6 @@ class _LessonCardState extends State<LessonCard> {
     );
   }
 
-  Widget _buildSelectedOption() {
-    final option = menuOptions[selectedMenuIndex!];
-    return Column(
-      children: [
-        const Divider(color: Colors.grey, height: 24),
-        Row(
-          children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: option['color'],
-              child: Icon(
-                option['icon'],
-                color: Colors.white,
-                size: 16,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              option['text'],
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildStartButton(), // "시작하기" 버튼을 바로 아래에 추가
-      ],
-    );
-  }
-
   Widget _buildStartButton() {
     return Container(
       width: double.infinity,
@@ -191,8 +176,22 @@ class _LessonCardState extends State<LessonCard> {
       ),
       child: TextButton(
         onPressed: () {
-          // 버튼 클릭 시 동작 추가 가능
-          print('Start button clicked!');
+          if (selectedMenuIndex == 0) {
+            // '오늘의 수업' 메뉴인지 확인
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VideoPlayerPage(
+                  title: menuOptions[selectedMenuIndex!]['title'],
+                  // ignore: prefer_interpolation_to_compose_strings
+                  videoPath: 'assets/videos/' +
+                      menuOptions[selectedMenuIndex!]['videoFile'],
+                ),
+              ),
+            );
+          } else {
+            print('Start button clicked for other menu!');
+          }
         },
         child: const Text(
           '시작하기',

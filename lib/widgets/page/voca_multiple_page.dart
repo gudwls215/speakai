@@ -10,7 +10,9 @@ class VocaMultiple extends StatefulWidget {
   final String section;
   final String text;
 
-  const VocaMultiple(this.course, this.chapter, this.section, this.text, {Key? key}) : super(key: key);
+  const VocaMultiple(this.course, this.chapter, this.section, this.text,
+      {Key? key})
+      : super(key: key);
 
   @override
   State<VocaMultiple> createState() => _VocaMultipleState();
@@ -23,7 +25,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
   bool hasAnswered = false;
   bool _isLoading = false;
   List<Map<String, dynamic>> questions = [];
-  
+
   @override
   void initState() {
     super.initState();
@@ -44,11 +46,11 @@ class _VocaMultipleState extends State<VocaMultiple> {
     });
 
     final cacheKey = _generateCacheKey();
-    
+
     try {
       // Try to load from cache first
       final cachedQuestions = await _loadCachedQuestions(cacheKey);
-      
+
       if (cachedQuestions != null && cachedQuestions.isNotEmpty) {
         // Use cached questions if available
         setState(() {
@@ -71,7 +73,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
     final prefs = await SharedPreferences.getInstance();
     final String? cachedData = prefs.getString('vocab_questions_$cacheKey');
     print("Cached Data: $cachedData");
-    
+
     if (cachedData != null) {
       final List<dynamic> decoded = jsonDecode(cachedData);
       return decoded.map((item) => Map<String, dynamic>.from(item)).toList();
@@ -80,9 +82,11 @@ class _VocaMultipleState extends State<VocaMultiple> {
   }
 
   // Save questions to cache
-  Future<void> _cacheQuestions(String cacheKey, List<Map<String, dynamic>> questionsToCache) async {
+  Future<void> _cacheQuestions(
+      String cacheKey, List<Map<String, dynamic>> questionsToCache) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('vocab_questions_$cacheKey', jsonEncode(questionsToCache));
+    await prefs.setString(
+        'vocab_questions_$cacheKey', jsonEncode(questionsToCache));
   }
 
   // Fetch questions from API
@@ -96,7 +100,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
       onSuccess: (result) async {
         // Cache the questions for future use
         await _cacheQuestions(cacheKey, result);
-        
+
         setState(() {
           questions = result;
           _isLoading = false;
@@ -211,7 +215,8 @@ class _VocaMultipleState extends State<VocaMultiple> {
       return Scaffold(
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            strokeWidth: 2,
+            color: Color.fromARGB(179, 59, 197, 221),
           ),
         ),
       );

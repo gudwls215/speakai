@@ -531,7 +531,10 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                   child: Center(
                     child: Column(
                       children: [
-                        CircularProgressIndicator(),
+                        CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color.fromARGB(179, 59, 197, 221),
+                        ),
                         SizedBox(height: 16),
                         Text('Processing your pronunciation...'),
                       ],
