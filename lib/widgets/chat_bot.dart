@@ -676,7 +676,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
               MaterialPageRoute(
                 builder: (context) => PronunciationAssessment(
                   metadata['COURSE'].toString(),
-                  metadata['CHAPTER'].toString(),
+                  metadata['LESSON'].toString(),
                   metadata['SECTION'].toString(),
                   metadata['WORD'].toString(),
                 ),
@@ -689,7 +689,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
               MaterialPageRoute(
                 builder: (context) => VocaMultiple(
                   metadata['COURSE'].toString(),
-                  metadata['CHAPTER'].toString(),
+                  metadata['LESSON'].toString(),
                   metadata['SECTION'].toString(),
                   "",
                 ),
@@ -734,8 +734,8 @@ class _ChatBotInputState extends State<ChatBotInput> {
                         ? metadata['COURSE_NAME']
                         : 'Course. ' +
                             metadata['COURSE_NAME'] +
-                            '\n Chapter. ' +
-                            metadata['CHAPTER_NAME'],
+                            '\n Lesson. ' +
+                            metadata['LESSON_NAME'],
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,

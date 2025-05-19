@@ -9,11 +9,11 @@ class LessonCard extends StatefulWidget {
   final String subtitle;
   final IconData icon;
   final String course;
-  final String chapter;
+  final String lesson;
   final String section;
 
   const LessonCard(this.index, this.title, this.subtitle, this.icon,
-      this.course, this.chapter, this.section,
+      this.course, this.lesson, this.section,
       {Key? key})
       : super(key: key);
 
@@ -203,7 +203,7 @@ class _LessonCardState extends State<LessonCard> {
               MaterialPageRoute(
                 builder: (context) => PronunciationAssessment(
                   widget.course,
-                  widget.chapter,
+                  widget.lesson,
                   widget.section,
                   widget.title, // 전달할 텍스트
                 ),
@@ -216,7 +216,7 @@ class _LessonCardState extends State<LessonCard> {
               MaterialPageRoute(
                 builder: (context) => VocaMultiple(
                   widget.course,
-                  widget.chapter,
+                  widget.lesson,
                   widget.section,
                   widget.title, // 전달할 텍스트
                 ),

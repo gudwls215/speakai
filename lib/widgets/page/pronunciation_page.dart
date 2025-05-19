@@ -9,12 +9,12 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 class PronunciationAssessment extends StatefulWidget {
   final String course;
-  final String chapter;
+  final String lesson;
   final String section;
   final String text;
 
   const PronunciationAssessment(
-      this.course, this.chapter, this.section, this.text,
+      this.course, this.lesson, this.section, this.text,
       {Key? key})
       : super(key: key);
 
@@ -65,7 +65,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   // Generate a unique cache key
   String _generateCacheKey() {
     final String payloadString =
-        "${widget.course}|${widget.chapter}|${widget.section}|${widget.text}";
+        "${widget.course}|${widget.lesson}|${widget.section}|${widget.text}";
     return md5.convert(utf8.encode(payloadString)).toString();
   }
 
@@ -115,7 +115,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   // Fetch conversation data from API
   Future<void> _fetchConversationDataFromApi(String cacheKey) async {
     final url = Uri.parse(
-        'http://192.168.0.147:8000/conversation?course=${widget.course}&chapter=${widget.chapter}&section=${widget.section}&text=${widget.text}');
+        'http://192.168.0.147:8000/conversation?course=${widget.course}&lesson=${widget.lesson}&section=${widget.section}&text=${widget.text}');
     try {
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',
