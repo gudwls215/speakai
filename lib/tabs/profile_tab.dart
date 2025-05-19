@@ -151,7 +151,7 @@ class ProfileTab extends StatelessWidget {
               
               // 수강 시작한 코스 섹션
               const SizedBox(height: 30),
-              _buildCourseSection(),
+              _buildCourseChapter(),
             ],
           ),
         ),
@@ -159,7 +159,7 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _buildCourseSection() {
+  Widget _buildCourseChapter() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

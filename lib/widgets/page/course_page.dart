@@ -47,7 +47,7 @@ class CoursePage extends StatelessWidget {
   List<Widget> _buildLessonsWithHeaders(List<Map<String, dynamic>> lessons) {
     List<Widget> widgets = [];
     String? currentLesson;
-    String? currentSection;
+    String? currentChapter;
 
     for (var entry in lessons.asMap().entries) {
       final index = entry.key;
@@ -55,13 +55,13 @@ class CoursePage extends StatelessWidget {
 
       if (lesson['LESSON_NAME'] != currentLesson) {
         currentLesson = lesson['LESSON_NAME'];
-        currentSection = null;
+        currentChapter = null;
         widgets.add(_buildLessonHeader('$currentLesson'));
       }
 
-      if (lesson['SECTION_NAME'] != currentSection) {
-        currentSection = lesson['SECTION_NAME'];
-        widgets.add(_buildSectionHeader('$currentSection'));
+      if (lesson['CHAPTER_NAME'] != currentChapter) {
+        currentChapter = lesson['CHAPTER_NAME'];
+        widgets.add(_buildChapterHeader('$currentChapter'));
       }
 
       widgets.add(LessonCard(
@@ -71,18 +71,18 @@ class CoursePage extends StatelessWidget {
         Icons.book,
         lesson['COURSE'] ?? '',
         lesson['LESSON'] ?? '',
-        lesson['SECTION'] ?? ''
+        lesson['CHAPTER'] ?? ''
       ));
     }
 
     return widgets;
   }
 
-  Widget _buildSectionHeader(String sectionName) {
+  Widget _buildChapterHeader(String chapterName) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Text(
-        sectionName,
+        chapterName,
         style: const TextStyle(
           color: Colors.grey,
           fontSize: 14,

@@ -677,7 +677,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
                 builder: (context) => PronunciationAssessment(
                   metadata['COURSE'].toString(),
                   metadata['LESSON'].toString(),
-                  metadata['SECTION'].toString(),
+                  metadata['CHAPTER'].toString(),
                   metadata['WORD'].toString(),
                 ),
               ),
@@ -690,7 +690,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
                 builder: (context) => VocaMultiple(
                   metadata['COURSE'].toString(),
                   metadata['LESSON'].toString(),
-                  metadata['SECTION'].toString(),
+                  metadata['CHAPTER'].toString(),
                   "",
                 ),
               ),

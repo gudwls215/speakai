@@ -7,10 +7,10 @@ import 'package:crypto/crypto.dart';
 class VocaMultiple extends StatefulWidget {
   final String course;
   final String lesson;
-  final String section;
+  final String chapter;
   final String text;
 
-  const VocaMultiple(this.course, this.lesson, this.section, this.text,
+  const VocaMultiple(this.course, this.lesson, this.chapter, this.text,
       {Key? key})
       : super(key: key);
 
@@ -35,7 +35,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
   // Create a unique key for the current payload
   String _generateCacheKey() {
     final String payloadString =
-        "${widget.course}|${widget.lesson}|${widget.section}|${widget.text}";
+        "${widget.course}|${widget.lesson}|${widget.chapter}|${widget.text}";
     print("Payload String: $payloadString");
     return md5.convert(utf8.encode(payloadString)).toString();
   }
@@ -98,7 +98,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
       text: widget.text,
       course: widget.course,
       lesson: widget.lesson,
-      section: widget.section,
+      chapter: widget.chapter,
       onSuccess: (result) async {
         // Cache the questions for future use
         await _cacheQuestions(cacheKey, result);
@@ -122,7 +122,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
     required String text,
     required String course,
     required String lesson,
-    required String section,
+    required String chapter,
     required void Function(List<Map<String, dynamic>> result) onSuccess,
     required void Function(String error) onError,
   }) async {
@@ -133,7 +133,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
       "text": text,
       "course": course,
       "lesson": lesson,
-      "section": section,
+      "chapter": chapter,
     };
 
     try {
