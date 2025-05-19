@@ -5,7 +5,9 @@ class VideoPlayerPage extends StatefulWidget {
   final String title; // 타이틀
   final String videoPath; // 동영상 파일 경로
 
-  const VideoPlayerPage({Key? key, required this.title, required this.videoPath}) : super(key: key);
+  const VideoPlayerPage(
+      {Key? key, required this.title, required this.videoPath})
+      : super(key: key);
 
   @override
   _VideoPlayerPageState createState() => _VideoPlayerPageState();
@@ -34,13 +36,29 @@ class _VideoPlayerPageState extends State<VideoPlayerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          widget.title, // 동적으로 전달된 타이틀 사용
-          style: const TextStyle(color: Colors.white),
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
-        backgroundColor: Colors.blueGrey[800],
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 1,
+        title: Row(
+          children: [
+            Text(
+              widget.title,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: Center(
         child: _controller.value.isInitialized

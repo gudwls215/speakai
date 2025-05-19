@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:speakai/widgets/page/pronunciation_page.dart';
 import 'package:speakai/widgets/page/video_player_page.dart';
+import 'package:speakai/widgets/page/voca_multiple_page.dart';
 
 class LessonCard extends StatefulWidget {
   final int index;
   final String title;
   final String subtitle;
   final IconData icon;
+  final String course;
+  final String chapter;
+  final String section;
 
-  const LessonCard(this.index, this.title, this.subtitle, this.icon, {Key? key})
+  const LessonCard(this.index, this.title, this.subtitle, this.icon,
+      this.course, this.chapter, this.section,
+      {Key? key})
       : super(key: key);
 
   @override
@@ -29,7 +36,7 @@ class _LessonCardState extends State<LessonCard> {
       'videoFile': 'nursing_1.1.mp4',
     },
     {'icon': Icons.mic, 'text': '스피킹 연습', 'color': Colors.pink[300]},
-    {'icon': Icons.people, 'text': '롤플레잉', 'color': Colors.purple[300]},
+    {'icon': Icons.people, 'text': '단어 연습', 'color': Colors.purple[300]},
   ];
 
   @override
@@ -189,8 +196,32 @@ class _LessonCardState extends State<LessonCard> {
                 ),
               ),
             );
-          } else {
-            print('Start button clicked for other menu!');
+          } else if (selectedMenuIndex == 1) {
+            // '스피킹 연습' 메뉴인지 확인
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PronunciationAssessment(
+                  widget.course,
+                  widget.chapter,
+                  widget.section,
+                  widget.title, // 전달할 텍스트
+                ),
+              ),
+            );
+          } else if (selectedMenuIndex == 2) {
+            // '단어 연습' 메뉴인지 확인
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VocaMultiple(
+                  widget.course,
+                  widget.chapter,
+                  widget.section,
+                  widget.title, // 전달할 텍스트
+                ),
+              ),
+            );
           }
         },
         child: const Text(

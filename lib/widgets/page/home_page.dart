@@ -44,7 +44,7 @@ class HomePage extends StatelessWidget {
           ),
           // CategoryCard(
           //     'Native Speakers\' Idioms', '네이티브가 실제 쓰는 숙어 표현', Icons.language),
-          CategoryCard('English Grammar', '영어 문법의 기초부터 심화까지', Icons.book),
+          // CategoryCard('English Grammar', '영어 문법의 기초부터 심화까지', Icons.book),
           SectionTitle('추천 코스'),
           CategoryCard(
               'Daily English', '매일 10분씩 영어회화 능력 향상', Icons.access_time),

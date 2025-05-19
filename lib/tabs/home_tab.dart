@@ -31,33 +31,44 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Color.fromARGB(255, 5, 1, 34),
+        backgroundColor: Color(0xFF1F2937),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             CircleAvatar(backgroundImage: AssetImage('avatar.png')),
+            Expanded(
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 150.0), 
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorColor: Colors.blue, // Keep the blue indicator
+                  indicatorWeight: 3.0, // Adjust the thickness of the indicator
+                  indicatorSize: TabBarIndicatorSize
+                      .label, // Make the indicator fit the label
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white,
+                  labelStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  tabs: const [
+                    Tab(text: '홈'),
+                    Tab(text: '코스'),
+                  ],
+                  overlayColor: MaterialStateProperty.all(
+                      Colors.transparent), // Remove the white underline
+                  labelPadding: EdgeInsets.symmetric(
+                      horizontal:
+                          4.0), // Reduce horizontal padding between tabs
+                ),
+              ),
+            ),
             Icon(Icons.notifications, color: Colors.white),
-          ],
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.blue,
-          indicatorWeight: 6.0, // Increase the thickness of the indicator
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.grey,
-          labelStyle: const TextStyle(
-            // Increase the font size for selected tab
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            // Increase the font size for unselected tabs
-            fontSize: 14,
-          ),
-          tabs: const [
-            Tab(text: '홈'),
-            Tab(text: '코스'),
           ],
         ),
       ),

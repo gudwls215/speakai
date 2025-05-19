@@ -34,7 +34,8 @@ class _VocaMultipleState extends State<VocaMultiple> {
 
   // Create a unique key for the current payload
   String _generateCacheKey() {
-    final String payloadString = "${widget.course}|${widget.chapter}|${widget.section}|${widget.text}";
+    final String payloadString =
+        "${widget.course}|${widget.chapter}|${widget.section}|${widget.text}";
     print("Payload String: $payloadString");
     return md5.convert(utf8.encode(payloadString)).toString();
   }
@@ -69,7 +70,8 @@ class _VocaMultipleState extends State<VocaMultiple> {
   }
 
   // Load cached questions from SharedPreferences
-  Future<List<Map<String, dynamic>>?> _loadCachedQuestions(String cacheKey) async {
+  Future<List<Map<String, dynamic>>?> _loadCachedQuestions(
+      String cacheKey) async {
     final prefs = await SharedPreferences.getInstance();
     final String? cachedData = prefs.getString('vocab_questions_$cacheKey');
     print("Cached Data: $cachedData");
@@ -151,14 +153,16 @@ class _VocaMultipleState extends State<VocaMultiple> {
 
         if (rawQuestions is String) {
           final parsed = jsonDecode(rawQuestions);
-          parsedQuestions = List<Map<String, dynamic>>.from(parsed['questions']);
+          parsedQuestions =
+              List<Map<String, dynamic>>.from(parsed['questions']);
         } else if (rawQuestions is Map<String, dynamic>) {
           parsedQuestions =
               List<Map<String, dynamic>>.from(rawQuestions['questions']);
         } else if (rawQuestions is List) {
           parsedQuestions = List<Map<String, dynamic>>.from(rawQuestions);
         } else {
-          throw Exception("Unexpected response format: ${rawQuestions.runtimeType}");
+          throw Exception(
+              "Unexpected response format: ${rawQuestions.runtimeType}");
         }
 
         onSuccess(parsedQuestions);
@@ -242,42 +246,59 @@ class _VocaMultipleState extends State<VocaMultiple> {
     final currentQuestion = questions[currentQuestionIndex];
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Text(
+              "단어 연습",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            onPressed: () {},
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
             // Top bar with back button and progress indicator
             Row(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () {
-                    Navigator.pop(context); // 화면 종료
-                  },
-                ),
                 Expanded(
-                  child: Container(
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[800],
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: progressValue,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(5),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0), // 좌우 여백 추가
+                    child: Container(
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: progressValue,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.tune, color: Colors.white),
-                  onPressed: () {
-                    // Handle settings
-                  },
                 ),
               ],
             ),

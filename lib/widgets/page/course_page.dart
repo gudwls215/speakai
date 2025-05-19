@@ -69,6 +69,9 @@ class CoursePage extends StatelessWidget {
         lesson['CASE_NAME'] ?? '',
         lesson['THEME'] ?? '',
         Icons.book,
+        lesson['COURSE'] ?? '',
+        lesson['CHAPTER'] ?? '',
+        lesson['SECTION'] ?? ''
       ));
     }
 

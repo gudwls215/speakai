@@ -61,8 +61,8 @@ class _MyHomePageState extends State<MyHomePage> {
   static const List<Widget> _widgetOptions = <Widget>[
     HomeTab(),
     FreeTalkTab(),
-    ReviewTab(),
-    ChallengeTab(),
+    // ReviewTab(),
+    // ChallengeTab(),
     ProfileTab(),
   ];
 
@@ -92,14 +92,14 @@ class _MyHomePageState extends State<MyHomePage> {
             icon: Icon(Icons.people, color: Colors.grey),
             label: '프리톡',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bolt, color: Colors.grey),
-            label: '리뷰',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.emoji_events, color: Colors.grey),
-            label: '챌린지',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.bolt, color: Colors.grey),
+          //   label: '리뷰',
+          // ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.emoji_events, color: Colors.grey),
+          //   label: '챌린지',
+          // ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person, color: Colors.grey),
             label: '프로필',
