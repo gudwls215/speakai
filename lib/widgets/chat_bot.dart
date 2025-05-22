@@ -33,7 +33,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
     required String userMessage,
   }) async {
     final Uri uri =
-        Uri.parse("http://192.168.0.147:8000/intent").replace(queryParameters: {
+        Uri.parse("https://192.168.0.147/internal/intent").replace(queryParameters: {
       'user_id': userId,
       'user_message': userMessage,
       'stream': 'false',
@@ -145,7 +145,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
       'stream': 'true',
     };
 
-    SSEHandler.fetchBotResponseWeb(parameters, "chat", (botMessageChunk) {
+    SSEHandler.fetchBotResponseWeb(parameters, "chat2", (botMessageChunk) {
       // UI 업데이트는 반드시 main 스레드에서 처리
       if (mounted) {
         setState(() {
@@ -361,7 +361,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
   // 레벨 평가 API 호출 함수
   Future<void> _fetchLevelAssessment(
       List<String> userResponses, List<dynamic> questions) async {
-    final Uri uri = Uri.parse("http://192.168.0.147:8000/level/assessment");
+    final Uri uri = Uri.parse("https://192.168.0.147/internal/level/assessment");
 
     // API에 보낼 데이터 구성
     List<Map<String, String>> answersData = [];
@@ -486,7 +486,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
           ));
         });
 
-        final Uri uri = Uri.parse("http://192.168.0.147:8000/level/questions")
+        final Uri uri = Uri.parse("https://192.168.0.147/internal/level/questions")
             .replace(queryParameters: {
           'user_id': "ttm",
         });

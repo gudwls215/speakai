@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/home_page.dart';
 import 'package:speakai/widgets/page/course_page.dart';
 import 'package:speakai/widgets/chat_bot.dart';
@@ -68,7 +69,15 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                 ),
               ),
             ),
-            Icon(Icons.notifications, color: Colors.white),
+            IconButton(
+              icon: Icon(Icons.notifications, color: Colors.white),
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('jwt_token'); // 'key'를 원하는 값으로 변경
+                // 필요하다면 setState 또는 알림 추가
+              },
+            ),
+            
           ],
         ),
       ),

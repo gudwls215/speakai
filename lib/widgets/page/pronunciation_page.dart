@@ -115,7 +115,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   // Fetch conversation data from API
   Future<void> _fetchConversationDataFromApi(String cacheKey) async {
     final url = Uri.parse(
-        'http://192.168.0.147:8000/conversation?course=${widget.course}&lesson=${widget.lesson}&chapter=${widget.chapter}&text=${widget.text}');
+        'https://192.168.0.147/internal/conversation?course=${widget.course}&lesson=${widget.lesson}&chapter=${widget.chapter}&text=${widget.text}');
     try {
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',
@@ -260,7 +260,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
       }
 
       // Send to server
-      final url = 'http://192.168.0.147:8000/assess_pronunciation';
+      final url = 'https://192.168.0.147/internal/assess_pronunciation';
       final xhr = html.HttpRequest();
 
       xhr.open('POST', url);
@@ -291,19 +291,29 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
       setState(() {
         _assessmentResult = {
-          'pronunciationScore': data['pronunciation_score'],
-          'accuracyScore': data['accuracy_score'],
-          'completenessScore': data['completeness_score'],
-          'fluencyScore': data['fluency_score'],
-          'prosodyScore': data['prosody_score'],
+          'pronunciationScore': data['pronunciation_score'] ?? 0,
+          'accuracyScore': data['accuracy_score'] ?? 0,
+          'completenessScore': data['completeness_score'] ?? 0,
+          'fluencyScore': data['fluency_score'] ?? 0,
+          'prosodyScore': data['prosody_score'] ?? 0,
         };
-        _wordResults =
-            List<Map<String, dynamic>>.from(data['words'].map((word) => {
+
+        // words가 null이거나 리스트가 아니면 빈 리스트로 처리
+        final wordsRaw = data['words'];
+        if (wordsRaw is List) {
+          _wordResults = List<Map<String, dynamic>>.from(
+            wordsRaw.map((word) => {
                   'word': word['word'],
                   'accuracyScore': word['accuracy_score'],
                   'errorType': word['error_type'],
-                }));
+                }),
+          );
+        } else {
+          _wordResults = [];
+        }
 
+        // 오류 카운트 초기화
+        errorCounts.updateAll((key, value) => 0);
         for (final word in _wordResults!) {
           final errorType = word['errorType'];
           if (errorCounts.containsKey(errorType)) {
@@ -311,9 +321,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
           }
         }
 
-        // 오류 카운트를 UI에서 사용할 수 있도록 상태에 저장하거나 다른 곳에 전달 가능
         print('Error counts: $errorCounts');
-
         _isProcessing = false;
       });
     } catch (e) {

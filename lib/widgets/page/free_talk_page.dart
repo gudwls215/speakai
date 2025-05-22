@@ -298,7 +298,7 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
         .text;
 
     final Uri uri =
-        Uri.parse("http://192.168.0.147:8000/hint").replace(queryParameters: {
+        Uri.parse("https://192.168.0.147/internal/hint").replace(queryParameters: {
       'user_id': "ttm",
       'pre_conversation': recentAiMessage, // 가장 최근 AI 메시지
       'user_role': widget.userRole, // 사용자 역할
@@ -535,7 +535,7 @@ class _TalkMessageState extends State<TalkMessage> {
       _isLoadingTranslate = true;
     });
 
-    final Uri uri = Uri.parse("http://192.168.0.147:8000/translate")
+    final Uri uri = Uri.parse("https://192.168.0.147/internal/translate")
         .replace(queryParameters: {
       'text': widget.text,
     });
@@ -596,7 +596,7 @@ class _TalkMessageState extends State<TalkMessage> {
     // Get previous bot message
     final previousBotMessage = messages[currentIndex - 1].text;
 
-    final Uri uri = Uri.parse("http://192.168.0.147:8000/feedback")
+    final Uri uri = Uri.parse("https://192.168.0.147/internal/feedback")
         .replace(queryParameters: {
       'user_id': "ttm",
       'user_message': widget.text,

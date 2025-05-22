@@ -15,7 +15,7 @@ class LessonProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final Uri uri = Uri.parse('http://192.168.0.147:8000/course/courses')
+    final Uri uri = Uri.parse('https://192.168.0.147/internal/course/courses')
         .replace(queryParameters: {'course': "1"});
 
     final response = await http.get(uri);

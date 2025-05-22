@@ -111,7 +111,7 @@ class FreeTalkTab extends StatelessWidget {
                   username: '@Taekgy',
                   title: '기초 영어 대화 시간',
                   userRole: '초등학생',
-                  aiRole: '미국 원어민 교사사',
+                  aiRole: '미국 원어민 교사',
                   description:
                       '아주 왕초급 단계로 일상 대화 위주로 대화를 진행. 대화 속도는 최대한 천천히. 학생이 얘기하면 어법에 맞도록 교정해준다. 교정된 문장으로 따라하기.',
                   engagementCount: '143',
@@ -122,7 +122,7 @@ class FreeTalkTab extends StatelessWidget {
                   username: '@한국인_영어학습가',
                   title: '오픽 모범답안 연습',
                   userRole: '오픽 공부하는 사람',
-                  aiRole: '오픽시험 모범정답 한문장씩 소개개',
+                  aiRole: '오픽시험 모범정답 한문장씩 소개',
                   description: '한문장씩 오픽 모범 답안 따라 읽으면서 기본적인 문장 익혀보아요',
                   engagementCount: '',
                   postId: "5",
