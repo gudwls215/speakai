@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:speakai/providers/chat_provider.dart';
 import 'package:speakai/providers/free_talk_provider.dart';
 import 'package:speakai/providers/lesson_provider.dart';
+import 'package:speakai/widgets/page/intro_page.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/free_talk_tab.dart';
 import 'tabs/review_tab.dart';
 import 'tabs/challenge_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(
@@ -27,22 +29,53 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  Future<bool> _isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('jwt_token');
+    print('Token: $token');
+    // 토큰이 null이 아니고, (필요하다면) 유효성 검사 추가
+    return token != null && token.isNotEmpty;
+    //return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-        title: 'SpeakAI',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          scaffoldBackgroundColor: Colors.black,
-          useMaterial3: true,
-        ),
-        scrollBehavior: const MaterialScrollBehavior().copyWith(
-          dragDevices: const {
-            PointerDeviceKind.touch,
-            PointerDeviceKind.mouse,
+    return FutureBuilder<bool>(
+      future: _isLoggedIn(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          // 로딩 중
+          return const MaterialApp(
+            home: Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            ),
+            debugShowCheckedModeBanner: false,
+          );
+        }
+        return MaterialApp(
+          title: 'SpeakAI',
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+            scaffoldBackgroundColor: Colors.black,
+            useMaterial3: true,
+          ),
+          scrollBehavior: const MaterialScrollBehavior().copyWith(
+            dragDevices: const {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+            },
+          ),
+          home: snapshot.data! 
+              ? const MyHomePage(title: 'SpeakAI') 
+              : const IntroPage(),
+          debugShowCheckedModeBanner: false,
+          routes: {
+            '/home': (context) => const MyHomePage(title: 'SpeakAI'),
+            '/intro': (context) => const IntroPage(),
           },
-        ),
-        home: const MyHomePage(title: 'SpeakAI'));
+        );
+      },
+    );
   }
 }
 
