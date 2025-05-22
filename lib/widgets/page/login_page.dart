@@ -23,7 +23,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('https://192.168.0.147/api/public/auth/getJwtToken'),
+        Uri.parse('http://114.202.2.224:8888/api/public/auth/getJwtToken'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id': id, 'password': pw}),
       );
