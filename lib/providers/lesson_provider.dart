@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart'; // 추가
 
 class LessonProvider with ChangeNotifier {
   List<Map<String, dynamic>> _lessons = [];
@@ -9,19 +10,57 @@ class LessonProvider with ChangeNotifier {
   List<Map<String, dynamic>> get lessons => _lessons;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchLessons() async {
+  Future<void> fetchLessons(BuildContext? context) async {
     if (_lessons.isNotEmpty) return; // 이미 데이터를 로드한 경우 재호출 방지
 
     _isLoading = true;
     notifyListeners();
 
-    final Uri uri = Uri.parse('http://192.168.0.147:8000/course/courses')
-        .replace(queryParameters: {'course': "1"});
+    // SharedPreferences에서 JWT 토큰 가져오기
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('jwt_token') ?? '';
+    print('JWT Token: $jwt');
+    if (jwt.isEmpty) {
+      print('JWT Token is empty');
+      _isLoading = false;
+      notifyListeners();
+      // 로그인 페이지로 이동
+      if (context != null) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+      return;
+    }
 
-    final response = await http.get(uri);
+    final Uri uri = Uri.parse(
+        'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/32');
+
+    final response = await http.get(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $jwt',
+        'Content-Type': 'application/json',
+      },
+    );
+
     if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      _lessons = List<Map<String, dynamic>>.from(data['metadatas']);
+      final List<dynamic> data = json.decode(response.body);
+      _lessons = data
+          .map<Map<String, dynamic>>((item) => {
+                'filePath': item['filePath'],
+                'courseId': item['courseId'],
+                'chapterId': item['chapterId'],
+                'lessonId': item['lessonId'],
+                'lessonName': item['lessonName'],
+                'chapterName': item['chapterName'],
+              })
+          .toList();
+    } else if (response.statusCode == 401) {
+      // 인증 실패 시 반복 호출 방지 및 로그인 페이지로 이동
+      print('Unauthorized: JWT 인증 실패');
+      _lessons = [];
+      if (context != null) {
+        Navigator.of(context).pushReplacementNamed('/intro');
+      }
     } else {
       print('Failed to load lessons');
     }
@@ -29,4 +68,25 @@ class LessonProvider with ChangeNotifier {
     _isLoading = false;
     notifyListeners();
   }
+
+  //   Future<void> fetchLessons() async {
+  //   if (_lessons.isNotEmpty) return; // 이미 데이터를 로드한 경우 재호출 방지
+
+  //   _isLoading = true;
+  //   notifyListeners();
+
+  //   final Uri uri = Uri.parse('http://192.168.0.147:8000/course/courses')
+  //       .replace(queryParameters: {'course': "1"});
+
+  //   final response = await http.get(uri);
+  //   if (response.statusCode == 200) {
+  //     final data = json.decode(response.body);
+  //     _lessons = List<Map<String, dynamic>>.from(data['metadatas']);
+  //   } else {
+  //     print('Failed to load lessons');
+  //   }
+
+  //   _isLoading = false;
+  //   notifyListeners();
+  // }
 }

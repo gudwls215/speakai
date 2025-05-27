@@ -31,16 +31,20 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final token = data['token'];
+        final user = data['user'];
         if (token != null && token is String) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('jwt_token', token);
-          // 온보딩 여부 확인
-          await prefs.setBool('is_onboarded', false);
-          final isOnboarded = prefs.getBool('is_onboarded') ?? false;
-
-          print('isOnboarded: $isOnboarded');
+          if (user != null) {
+            await prefs.setString('user', jsonEncode(user));
+            // tutorOnboardYn 값으로 온보딩 여부 저장
+            final isOnboarded = user['tutorOnboardYn'] == true;
+            await prefs.setBool('is_onboarded', isOnboarded);
+            print('isOnboarded: $isOnboarded');
+          }
           print(mounted);
           if (!mounted) return;
+          final isOnboarded = prefs.getBool('is_onboarded') ?? false;
           if (!isOnboarded) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const OnboardingPage()),

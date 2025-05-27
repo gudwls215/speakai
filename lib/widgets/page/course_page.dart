@@ -12,7 +12,7 @@ class CoursePage extends StatelessWidget {
 
     // fetchLessons 호출 (한 번만 실행됨)
     if (!lessonProvider.isLoading && lessonProvider.lessons.isEmpty) {
-      lessonProvider.fetchLessons();
+      lessonProvider.fetchLessons(context);
     }
 
     return SingleChildScrollView(
@@ -53,26 +53,26 @@ class CoursePage extends StatelessWidget {
       final index = entry.key;
       final lesson = entry.value;
 
-      if (lesson['LESSON_NAME'] != currentLesson) {
-        currentLesson = lesson['LESSON_NAME'];
+      if (lesson['lessonName'] != currentLesson) {
+        currentLesson = lesson['lessonName'];
         currentChapter = null;
         widgets.add(_buildLessonHeader('$currentLesson'));
       }
 
-      if (lesson['CHAPTER_NAME'] != currentChapter) {
-        currentChapter = lesson['CHAPTER_NAME'];
+      if (lesson['chapterName'] != currentChapter) {
+        currentChapter = lesson['chapterName'];
         widgets.add(_buildChapterHeader('$currentChapter'));
       }
 
       widgets.add(LessonCard(
-        index,
-        lesson['CASE_NAME'] ?? '',
-        lesson['THEME'] ?? '',
-        Icons.book,
-        lesson['COURSE'] ?? '',
-        lesson['LESSON'] ?? '',
-        lesson['CHAPTER'] ?? ''
-      ));
+          index,
+          lesson['lessonName'] ?? '',
+          lesson['lessonName'] ?? '',
+          Icons.book,
+          lesson['courseId'].toString(),
+          lesson['lessonId'].toString(),
+          lesson['chapterId'].toString()
+          ));
     }
 
     return widgets;
@@ -111,4 +111,3 @@ class CoursePage extends StatelessWidget {
     );
   }
 }
-

@@ -26,18 +26,23 @@ class _LessonCardState extends State<LessonCard> {
   int? selectedMenuIndex;
   bool showStartButton = false;
 
-  // Menu options for each lesson
-  final List<Map<String, dynamic>> menuOptions = [
-    {
-      'icon': Icons.play_arrow,
-      'text': '오늘의 수업',
-      'color': Colors.amber,
-      'title': '중년 성인의 호흡 불편 평가',
-      'videoFile': 'nursing_1.1.mp4',
-    },
-    {'icon': Icons.mic, 'text': '스피킹 연습', 'color': Colors.pink[300]},
-    {'icon': Icons.people, 'text': '단어 연습', 'color': Colors.purple[300]},
-  ];
+  late List<Map<String, dynamic>> menuOptions;
+
+  @override
+  void initState() {
+    super.initState();
+    menuOptions = [
+      {
+        'icon': Icons.play_arrow,
+        'text': '오늘의 수업',
+        'color': Colors.amber,
+        'title': '중년 성인의 호흡 불편 평가',
+        'chapterId': widget.chapter,
+      },
+      {'icon': Icons.mic, 'text': '스피킹 연습', 'color': Colors.pink[300]},
+      {'icon': Icons.people, 'text': '단어 연습', 'color': Colors.purple[300]},
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,12 +196,15 @@ class _LessonCardState extends State<LessonCard> {
                 builder: (context) => VideoPlayerPage(
                   title: menuOptions[selectedMenuIndex!]['title'],
                   // ignore: prefer_interpolation_to_compose_strings
-                  videoPath: 'assets/videos/' +
-                      menuOptions[selectedMenuIndex!]['videoFile'],
+                  chapterId: menuOptions[selectedMenuIndex!]['chapterId'],
                 ),
               ),
             );
           } else if (selectedMenuIndex == 1) {
+            print("스피킹 클릭  ");
+            print(widget.course);
+            print(widget.lesson);
+            print(widget.chapter);
             // '스피킹 연습' 메뉴인지 확인
             Navigator.push(
               context,

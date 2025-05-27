@@ -1,8 +1,52 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/free_talk_page.dart';
 
-class FreeTalkTab extends StatelessWidget {
+class FreeTalkTab extends StatefulWidget {
   const FreeTalkTab({Key? key}) : super(key: key);
+
+  @override
+  State<FreeTalkTab> createState() => _FreeTalkTabState();
+}
+
+class _FreeTalkTabState extends State<FreeTalkTab> {
+  List<dynamic> _posts = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPosts();
+  }
+
+  Future<void> _fetchPosts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final dio = Dio();
+      final response = await dio.get(
+        'http://114.202.2.224:8888/api/public/site/apiGetTutorFreeTalk',
+        options: Options(
+          headers: {'Authorization': 'Bearer $jwt'},
+        ),
+      );
+      setState(() {
+        _posts = response.data is List ? response.data : [];
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = '데이터를 불러오지 못했습니다.';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +87,7 @@ class FreeTalkTab extends StatelessWidget {
       ),
       body: Column(
         children: [
+          // ...카테고리 칩 등 기존 코드...
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: SingleChildScrollView(
@@ -72,63 +117,30 @@ class FreeTalkTab extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              children: const [
-                PostCard(
-                  profileEmoji: '⏰',
-                  username: '@DynamicCaribou6647',
-                  title: '3분 영어 대화',
-                  userRole: '나',
-                  aiRole: '외국인',
-                  description: '영어실력 99.9% 느는 외국인과의 3분 대화',
-                  engagementCount: '93',
-                  postId: "1",
-                ),
-                PostCard(
-                  profileEmoji: '📖',
-                  username: '@제작진이다먹음',
-                  title: '어려운 문장 번역하기',
-                  userRole: '학생',
-                  aiRole: '선생님',
-                  description:
-                      '1. 선생님이 한국어예문을 제시하면 학생은 영어로 번역하여 대답한다. 2. 선생님은 학생이 틀린 부분을 교정해주면 학생은 완벽하게 따라할 때가지 반복한다. 3. 한국어 예문은 반드시 어렵고 복잡한 문장을 제시해야할 것.',
-                  engagementCount: '403',
-                  postId: "2",
-                ),
-                PostCard(
-                  profileEmoji: '📚',
-                  username: '@50년째 초보',
-                  title: '호텔 체크인',
-                  userRole: '나',
-                  aiRole: '호텔 프론트 직원',
-                  description: '호텔 체크인',
-                  engagementCount: '435',
-                  postId: "3",
-                ),
-                PostCard(
-                  profileEmoji: '🗣️',
-                  username: '@Taekgy',
-                  title: '기초 영어 대화 시간',
-                  userRole: '초등학생',
-                  aiRole: '미국 원어민 교사사',
-                  description:
-                      '아주 왕초급 단계로 일상 대화 위주로 대화를 진행. 대화 속도는 최대한 천천히. 학생이 얘기하면 어법에 맞도록 교정해준다. 교정된 문장으로 따라하기.',
-                  engagementCount: '143',
-                  postId: "4",
-                ),
-                PostCard(
-                  profileEmoji: '🎉',
-                  username: '@한국인_영어학습가',
-                  title: '오픽 모범답안 연습',
-                  userRole: '오픽 공부하는 사람',
-                  aiRole: '오픽시험 모범정답 한문장씩 소개개',
-                  description: '한문장씩 오픽 모범 답안 따라 읽으면서 기본적인 문장 익혀보아요',
-                  engagementCount: '',
-                  postId: "5",
-                ),
-              ],
-            ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? Center(
+                        child: Text(_error!,
+                            style: TextStyle(color: Colors.white)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: _posts.length,
+                        itemBuilder: (context, index) {
+                          final post = _posts[index];
+                          return PostCard(
+                            profileEmoji: post['profileEmoji'] ?? '🗣️',
+                            username: post['username'] ?? '',
+                            title: post['title'] ?? '',
+                            userRole: post['userRole'] ?? '',
+                            aiRole: post['aiRole'] ?? '',
+                            description: post['description'] ?? '',
+                            engagementCount:
+                                post['engagementCount']?.toString() ?? '',
+                            postId: post['postId']?.toString() ?? '',
+                          );
+                        },
+                      ),
           ),
         ],
       ),
@@ -668,7 +680,26 @@ class PostDetailBottomSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () async {
+                      final result =
+                          await showModalBottomSheet<Map<String, String>>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => EditScenarioBottomSheet(
+                          userRole: userRole,
+                          aiRole: aiRole,
+                          description: description,
+                        ),
+                      );
+                      if (result != null) {
+                        // 수정된 데이터 처리 (예: 화면 갱신, 서버 전송 등)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('시나리오가 수정되었습니다.')),
+                        );
+                        // 필요하다면 setState 또는 상위 콜백으로 데이터 전달
+                      }
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[700],
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -721,6 +752,165 @@ class PostDetailBottomSheet extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class EditScenarioBottomSheet extends StatefulWidget {
+  final String userRole;
+  final String aiRole;
+  final String description;
+
+  const EditScenarioBottomSheet({
+    Key? key,
+    required this.userRole,
+    required this.aiRole,
+    required this.description,
+  }) : super(key: key);
+
+  @override
+  State<EditScenarioBottomSheet> createState() =>
+      _EditScenarioBottomSheetState();
+}
+
+class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
+  late TextEditingController _userRoleController;
+  late TextEditingController _aiRoleController;
+  late TextEditingController _descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _userRoleController = TextEditingController(text: widget.userRole);
+    _aiRoleController = TextEditingController(text: widget.aiRole);
+    _descriptionController = TextEditingController(text: widget.description);
+  }
+
+  @override
+  void dispose() {
+    _userRoleController.dispose();
+    _aiRoleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _onSubmit() {
+    final userRole = _userRoleController.text.trim();
+    final aiRole = _aiRoleController.text.trim();
+    final description = _descriptionController.text.trim();
+
+    if (userRole.isNotEmpty && aiRole.isNotEmpty && description.isNotEmpty) {
+      Navigator.pop(context, {
+        'userRole': userRole,
+        'aiRole': aiRole,
+        'description': description,
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('모든 필드를 입력해주세요.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Color(0xFF121212),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[600],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              '시나리오 수정',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Divider(color: Color(0xFF333333)),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                TextField(
+                  controller: _userRoleController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: '나의 역할',
+                    labelStyle: TextStyle(color: Colors.grey),
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _aiRoleController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: 'AI의 역할',
+                    labelStyle: TextStyle(color: Colors.grey),
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _descriptionController,
+                  style: const TextStyle(color: Colors.white),
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: '상황 및 대화 주제',
+                    labelStyle: TextStyle(color: Colors.grey),
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton(
+              onPressed: _onSubmit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                '수정 완료',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
             ),
           ),
         ],
