@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speakai/config.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -36,7 +37,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
     final url = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiOnboardingSelections');
+        '$apiBaseUrl/api/public/site/apiOnboardingSelections');
 
     // 목적 value 매핑
     final selectedPurposeValues = _purposeList

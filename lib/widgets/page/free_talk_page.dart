@@ -8,6 +8,7 @@ import 'package:speakai/services/speech_to_text_handler.dart';
 import 'package:speakai/services/sse_service.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speakai/config.dart';
 
 class FreeTalkMessage extends StatefulWidget {
   final String title;
@@ -298,7 +299,7 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
         .text;
 
     final Uri uri =
-        Uri.parse("http://192.168.0.147:8000/hint").replace(queryParameters: {
+        Uri.parse("$aiBaseUrl/hint").replace(queryParameters: {
       'user_id': "ttm",
       'pre_conversation': recentAiMessage, // 가장 최근 AI 메시지
       'user_role': widget.userRole, // 사용자 역할
@@ -535,7 +536,7 @@ class _TalkMessageState extends State<TalkMessage> {
       _isLoadingTranslate = true;
     });
 
-    final Uri uri = Uri.parse("http://192.168.0.147:8000/translate")
+    final Uri uri = Uri.parse("$aiBaseUrl/translate")
         .replace(queryParameters: {
       'text': widget.text,
     });
@@ -596,7 +597,7 @@ class _TalkMessageState extends State<TalkMessage> {
     // Get previous bot message
     final previousBotMessage = messages[currentIndex - 1].text;
 
-    final Uri uri = Uri.parse("http://192.168.0.147:8000/feedback")
+    final Uri uri = Uri.parse("$aiBaseUrl/feedback")
         .replace(queryParameters: {
       'user_id': "ttm",
       'user_message': widget.text,

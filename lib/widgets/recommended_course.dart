@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speakai/config.dart';
 
 class RecommendedCourse extends StatelessWidget {
   final String title;
@@ -88,7 +89,7 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
     try {
       final response = await http.post(
         Uri.parse(
-            'http://114.202.2.224:8888/api/public/site/apiSetTutorCurrentCourse?courseId=$courseId'),
+            '$apiBaseUrl/api/public/site/apiSetTutorCurrentCourse?courseId=$courseId'),
         headers: {
           'Authorization': 'Bearer $jwt',
           'Content-Type': 'application/json',
@@ -128,7 +129,7 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
       final url = Uri.parse(
-          'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/${widget.courseId}');
+          '$apiBaseUrl/api/public/site/apiGetCourseDetail/${widget.courseId}');
       final response = await http.get(
         url,
         headers: {

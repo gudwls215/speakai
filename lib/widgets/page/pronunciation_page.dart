@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speakai/config.dart';
 
 class PronunciationAssessment extends StatefulWidget {
   final String course;
@@ -117,7 +118,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   // Fetch conversation data from API
   Future<void> _fetchConversationDataFromApi(String cacheKey) async {
     final url = Uri.parse(
-        'http://192.168.0.147:8000/conversation?course=${widget.course}&lesson=${widget.lesson}&chapter=${widget.chapter}&text=${widget.text}');
+        '$aiBaseUrl/conversation?course=${widget.course}&lesson=${widget.lesson}&chapter=${widget.chapter}&text=${widget.text}');
     try {
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',
@@ -234,7 +235,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
     final url = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmarks');
+        '$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
     try {
       final response = await http.get(
         url,
@@ -259,7 +260,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
   Future<String> _fetchTranslationForBookmark(String sentence) async {
     try {
-      final Uri uri = Uri.parse("http://192.168.0.147:8000/translate")
+      final Uri uri = Uri.parse("$aiBaseUrl/translate")
           .replace(queryParameters: {'text': sentence});
       final response = await http.get(uri);
 
@@ -281,7 +282,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     final translate = await _fetchTranslationForBookmark(sentence);
 
     final url = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmark');
+        '$apiBaseUrl/api/public/site/apiTutorSentenceBookmark');
     final body = jsonEncode({
       "chapter_id": chapterId,
       "sentence": sentence,
@@ -322,7 +323,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     final sentence = _conversationData![_currentIndex];
 
     final url = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmark?sentence=${Uri.encodeComponent(sentence)}');
+        '$apiBaseUrl/api/public/site/apiTutorSentenceBookmark?sentence=${Uri.encodeComponent(sentence)}');
 
     try {
       final response = await http.delete(
@@ -383,7 +384,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
       }
 
       // Send to server
-      final url = 'http://192.168.0.147:8000/assess_pronunciation';
+      final url = '$aiBaseUrl/assess_pronunciation';
       final xhr = html.HttpRequest();
 
       xhr.open('POST', url);

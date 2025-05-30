@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
+import 'package:speakai/config.dart';
 
 class VocaMultiple extends StatefulWidget {
   final String course;
@@ -123,7 +124,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
     final url =
-        Uri.parse('http://114.202.2.224:8888/api/public/site/apiTutorWordBookmark');
+        Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmark');
     final body = jsonEncode({
       "word": word,
       "translate": translate,
@@ -166,7 +167,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
     required void Function(List<Map<String, dynamic>> result) onSuccess,
     required void Function(String error) onError,
   }) async {
-    final url = Uri.parse('http://192.168.0.147:8000/vocab');
+    final url = Uri.parse('$aiBaseUrl/vocab');
 
     final payload = {
       "user_id": userId,

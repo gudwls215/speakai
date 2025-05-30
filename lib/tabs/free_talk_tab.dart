@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/free_talk_page.dart';
+import 'package:speakai/config.dart';
 
 class FreeTalkTab extends StatefulWidget {
   const FreeTalkTab({Key? key}) : super(key: key);
@@ -31,7 +32,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
       final jwt = prefs.getString('jwt_token') ?? '';
       final dio = Dio();
       final response = await dio.get(
-        'http://114.202.2.224:8888/api/public/site/apiGetTutorFreeTalk',
+        '$apiBaseUrl/api/public/site/apiGetTutorFreeTalk',
         options: Options(
           headers: {'Authorization': 'Bearer $jwt'},
         ),

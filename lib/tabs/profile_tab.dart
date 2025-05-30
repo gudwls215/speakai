@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speakai/config.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({Key? key}) : super(key: key);
@@ -492,7 +493,7 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
-      final url = Uri.parse('http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmarks');
+      final url = Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
       final response = await http.get(
         url,
         headers: {
@@ -642,7 +643,7 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
-      final url = Uri.parse('http://114.202.2.224:8888/api/public/site/apiTutorWordBookmarks');
+      final url = Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmarks');
       final response = await http.get(
         url,
         headers: {

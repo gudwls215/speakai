@@ -3,9 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:dio/dio.dart';
+import 'package:speakai/config.dart';
 
 class VideoStreamingService {
-  static const String baseUrl = 'http://114.202.2.224:8888/api/public/site';
+  static const String baseUrl = '$apiBaseUrl/api/public/site';
   final Dio _dio = Dio();
   String? _authToken;
 

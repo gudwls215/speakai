@@ -11,6 +11,7 @@ import 'package:speakai/widgets/category_card.dart';
 import 'package:speakai/widgets/next_lesson_card.dart';
 import 'package:speakai/widgets/page/voca_multiple_page.dart';
 import 'package:speakai/widgets/recommended_course.dart';
+import 'package:speakai/config.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -43,7 +44,7 @@ class _HomePageState extends State<HomePage> {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
       final url = Uri.parse(
-          'http://114.202.2.224:8888/api/public/site/apiRecommendCoursesByOnboarding');
+          '$apiBaseUrl/api/public/site/apiRecommendCoursesByOnboarding');
       final response = await http.get(
         url,
         headers: {
@@ -83,7 +84,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final url = Uri.parse(
-          'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/$currentCourseId');
+          '$apiBaseUrl/api/public/site/apiGetCourseDetail/$currentCourseId');
       final response = await http.get(
         url,
         headers: {

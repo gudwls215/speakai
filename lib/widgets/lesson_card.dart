@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/pronunciation_page.dart';
 import 'package:speakai/widgets/page/video_player_page.dart';
 import 'package:speakai/widgets/page/voca_multiple_page.dart';
+import 'package:speakai/config.dart';
 
 class LessonCard extends StatefulWidget {
   final int index;
@@ -197,7 +198,7 @@ class _LessonCardState extends State<LessonCard> {
           prefs.setString('current_chapter', chapterId);
           try {
             final response = await http.post(
-              Uri.parse('http://114.202.2.224:8888/api/public/site/apiSetTutorCurrentChapter?chapterId=$chapterId'),
+              Uri.parse('$apiBaseUrl/api/public/site/apiSetTutorCurrentChapter?chapterId=$chapterId'),
               headers: {
                 'Authorization': 'Bearer $jwt',
                 'Content-Type': 'application/json',

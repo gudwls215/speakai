@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart'; // 추가
+import 'package:speakai/config.dart';
 
 class LessonProvider with ChangeNotifier {
   List<Map<String, dynamic>> _lessons = [];
@@ -41,7 +42,7 @@ Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) asy
     }
 
     final Uri uri = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/$currentCourse');
+        '$apiBaseUrl/api/public/site/apiGetCourseDetail/$currentCourse');
 
     final response = await http.get(
       uri,
@@ -93,7 +94,7 @@ Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) asy
   //   _isLoading = true;
   //   notifyListeners();
 
-  //   final Uri uri = Uri.parse('http://192.168.0.147:8000/course/courses')
+  //   final Uri uri = Uri.parse('$aiBaseUrl/course/courses')
   //       .replace(queryParameters: {'course': "1"});
 
   //   final response = await http.get(uri);

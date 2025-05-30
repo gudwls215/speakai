@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/onboarding_page.dart';
+import 'package:speakai/config.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -23,7 +24,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://114.202.2.224:8888/api/public/auth/getJwtToken'),
+        Uri.parse('$apiBaseUrl/api/public/auth/getJwtToken'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id': id, 'password': pw}),
       );
