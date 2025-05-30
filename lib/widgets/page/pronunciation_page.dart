@@ -234,7 +234,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
     final url = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmarks');
+        'https://192.168.0.147/api/public/site/apiTutorSentenceBookmarks');
     try {
       final response = await http.get(
         url,
@@ -281,7 +281,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     final translate = await _fetchTranslationForBookmark(sentence);
 
     final url = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmark');
+        'https://192.168.0.147/api/public/site/apiTutorSentenceBookmark');
     final body = jsonEncode({
       "chapter_id": chapterId,
       "sentence": sentence,
@@ -322,7 +322,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     final sentence = _conversationData![_currentIndex];
 
     final url = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmark?sentence=${Uri.encodeComponent(sentence)}');
+        'https://192.168.0.147/api/public/site/apiTutorSentenceBookmark?sentence=${Uri.encodeComponent(sentence)}');
 
     try {
       final response = await http.delete(

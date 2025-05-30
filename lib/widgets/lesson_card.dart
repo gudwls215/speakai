@@ -197,7 +197,7 @@ class _LessonCardState extends State<LessonCard> {
           prefs.setString('current_chapter', chapterId);
           try {
             final response = await http.post(
-              Uri.parse('http://114.202.2.224:8888/api/public/site/apiSetTutorCurrentChapter?chapterId=$chapterId'),
+              Uri.parse('https://192.168.0.147/api/public/site/apiSetTutorCurrentChapter?chapterId=$chapterId'),
               headers: {
                 'Authorization': 'Bearer $jwt',
                 'Content-Type': 'application/json',

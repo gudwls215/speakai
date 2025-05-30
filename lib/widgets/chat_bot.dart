@@ -145,7 +145,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
       'stream': 'true',
     };
 
-    SSEHandler.fetchBotResponseWeb(parameters, "chat", (botMessageChunk) {
+    SSEHandler.fetchBotResponseWeb(parameters, "chat2", (botMessageChunk) {
       // UI 업데이트는 반드시 main 스레드에서 처리
       if (mounted) {
         setState(() {

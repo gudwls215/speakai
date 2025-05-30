@@ -123,7 +123,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
     final url =
-        Uri.parse('http://114.202.2.224:8888/api/public/site/apiTutorWordBookmark');
+        Uri.parse('https://192.168.0.147/api/public/site/apiTutorWordBookmark');
     final body = jsonEncode({
       "word": word,
       "translate": translate,

@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
       final url = Uri.parse(
-          'http://114.202.2.224:8888/api/public/site/apiRecommendCoursesByOnboarding');
+          'https://192.168.0.147/api/public/site/apiRecommendCoursesByOnboarding');
       final response = await http.get(
         url,
         headers: {
@@ -83,7 +83,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final url = Uri.parse(
-          'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/$currentCourseId');
+          'https://192.168.0.147/api/public/site/apiGetCourseDetail/$currentCourseId');
       final response = await http.get(
         url,
         headers: {

@@ -130,7 +130,7 @@ class _LessonListSheetState extends State<LessonListSheet> {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
       final response = await http.get(
-        Uri.parse('http://114.202.2.224:8888/api/public/site/apiGetCourseList'),
+        Uri.parse('https://192.168.0.147/api/public/site/apiGetCourseList'),
         headers: {
           'Authorization': 'Bearer $jwt',
           'Content-Type': 'application/json',
@@ -162,7 +162,7 @@ class _LessonListSheetState extends State<LessonListSheet> {
     try {
       final response = await http.post(
         Uri.parse(
-            'http://114.202.2.224:8888/api/public/site/apiSetTutorCurrentCourse?courseId=$courseId'),
+            'https://192.168.0.147/api/public/site/apiSetTutorCurrentCourse?courseId=$courseId'),
         headers: {
           'Authorization': 'Bearer $jwt',
           'Content-Type': 'application/json',

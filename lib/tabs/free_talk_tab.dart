@@ -31,7 +31,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
       final jwt = prefs.getString('jwt_token') ?? '';
       final dio = Dio();
       final response = await dio.get(
-        'http://114.202.2.224:8888/api/public/site/apiGetTutorFreeTalk',
+        'https://192.168.0.147/api/public/site/apiGetTutorFreeTalk',
         options: Options(
           headers: {'Authorization': 'Bearer $jwt'},
         ),

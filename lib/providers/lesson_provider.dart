@@ -41,7 +41,7 @@ Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) asy
     }
 
     final Uri uri = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/$currentCourse');
+        'https://192.168.0.147/api/public/site/apiGetCourseDetail/$currentCourse');
 
     final response = await http.get(
       uri,

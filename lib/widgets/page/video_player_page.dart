@@ -5,7 +5,7 @@ import 'package:chewie/chewie.dart';
 import 'package:dio/dio.dart';
 
 class VideoStreamingService {
-  static const String baseUrl = 'http://114.202.2.224:8888/api/public/site';
+  static const String baseUrl = 'https://192.168.0.147/api/public/site';
   final Dio _dio = Dio();
   String? _authToken;
 
