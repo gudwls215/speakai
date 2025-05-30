@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:speakai/widgets/page/video_player_page.dart';
 
 class NextLessonCard extends StatelessWidget {
-  const NextLessonCard({Key? key}) : super(key: key);
+  final String chapterName;
+  final String chapter;
+
+  const NextLessonCard(this.chapterName, this.chapter, {Key? key})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -28,14 +33,27 @@ class NextLessonCard extends StatelessWidget {
             ),
             const Icon(Icons.mic, color: Colors.pink, size: 50),
             const SizedBox(height: 16),
-            const Text('여기가 영어 101 수업인가요?', style: TextStyle(color: Colors.white, fontSize: 18)),
-            const Text('Is this English 101?', style: TextStyle(color: Colors.grey, fontSize: 14)),
+            Text(chapterName,
+                style: const TextStyle(color: Colors.white, fontSize: 18)),
+            Text(chapterName,
+                style: TextStyle(color: Colors.grey, fontSize: 14)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => VideoPlayerPage(
+                      title: chapter,
+                      chapterId: chapter,
+                    ),
+                  ),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               ),
               child: const Text('시작하기'),
             ),

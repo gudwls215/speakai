@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/pronunciation_page.dart';
 import 'package:speakai/widgets/page/video_player_page.dart';
 import 'package:speakai/widgets/page/voca_multiple_page.dart';
@@ -187,7 +189,37 @@ class _LessonCardState extends State<LessonCard> {
         borderRadius: BorderRadius.circular(8.0),
       ),
       child: TextButton(
-        onPressed: () {
+        onPressed: () async {
+          // ▼▼▼ 추가: 챕터 업데이트 API 호출 ▼▼▼
+          final chapterId = widget.chapter;
+          final prefs = await SharedPreferences.getInstance();
+          final jwt = prefs.getString('jwt_token') ?? '';
+          prefs.setString('current_chapter', chapterId);
+          try {
+            final response = await http.post(
+              Uri.parse('http://114.202.2.224:8888/api/public/site/apiSetTutorCurrentChapter?chapterId=$chapterId'),
+              headers: {
+                'Authorization': 'Bearer $jwt',
+                'Content-Type': 'application/json',
+              },
+            );
+            if (response.statusCode != 200) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('챕터 업데이트 실패: ${response.body}')),
+                );
+                return;
+              }
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+              );
+              return;
+            }
+          }
+
           if (selectedMenuIndex == 0) {
             // '오늘의 수업' 메뉴인지 확인
             Navigator.push(
@@ -195,17 +227,11 @@ class _LessonCardState extends State<LessonCard> {
               MaterialPageRoute(
                 builder: (context) => VideoPlayerPage(
                   title: menuOptions[selectedMenuIndex!]['title'],
-                  // ignore: prefer_interpolation_to_compose_strings
                   chapterId: menuOptions[selectedMenuIndex!]['chapterId'],
                 ),
               ),
             );
           } else if (selectedMenuIndex == 1) {
-            print("스피킹 클릭  ");
-            print(widget.course);
-            print(widget.lesson);
-            print(widget.chapter);
-            // '스피킹 연습' 메뉴인지 확인
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -213,12 +239,11 @@ class _LessonCardState extends State<LessonCard> {
                   widget.course,
                   widget.lesson,
                   widget.chapter,
-                  widget.title, // 전달할 텍스트
+                  widget.title,
                 ),
               ),
             );
           } else if (selectedMenuIndex == 2) {
-            // '단어 연습' 메뉴인지 확인
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -226,7 +251,7 @@ class _LessonCardState extends State<LessonCard> {
                   widget.course,
                   widget.lesson,
                   widget.chapter,
-                  widget.title, // 전달할 텍스트
+                  widget.title,
                 ),
               ),
             );

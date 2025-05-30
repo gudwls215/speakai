@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({Key? key}) : super(key: key);
@@ -7,7 +11,7 @@ class ProfileTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-            appBar: AppBar(
+      appBar: AppBar(
         backgroundColor: Color(0xFF1F2937),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -20,7 +24,7 @@ class ProfileTab extends StatelessWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
+          child: Column( 
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Center(
@@ -132,23 +136,42 @@ class ProfileTab extends StatelessWidget {
                       subtitle: '1일 1수업으로 불꽃 유지!',
                     ),
                     const Divider(height: 1, color: Colors.grey),
-                    _buildBookmarkItem(
-                      icon: Icons.bookmark_outline,
-                      iconBgColor: Colors.blue,
-                      title: '보관한 표현',
-                      subtitle: '두고두고 볼 나만의 표현 집합소!',
+                    GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const BookmarkedSentencesSheet(),
+                        );
+                      },
+                      child: _buildBookmarkItem(
+                        icon: Icons.bookmark_outline,
+                        iconBgColor: Colors.blue,
+                        title: '보관한 표현',
+                        subtitle: '두고두고 볼 나만의 표현 집합소!',
+                      ),
                     ),
                     const Divider(height: 1, color: Colors.grey),
-                    _buildBookmarkItem(
-                      icon: Icons.bookmark_outline,
-                      iconBgColor: Colors.amber,
-                      title: '보관한 단어',
-                      subtitle: 'AI 코치와 함께 발음 연습하기!',
+                    GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const BookmarkedWordsSheet(),
+                        );
+                      },
+                      child: _buildBookmarkItem(
+                        icon: Icons.bookmark_outline,
+                        iconBgColor: Colors.amber,
+                        title: '보관한 단어',
+                        subtitle: 'AI 코치와 함께 발음 연습하기!',
+                      ),
                     ),
                   ],
                 ),
               ),
-              
               // 수강 시작한 코스 섹션
               const SizedBox(height: 30),
               _buildCourseChapter(),
@@ -437,6 +460,307 @@ class ProfileTab extends StatelessWidget {
           fontSize: 12,
         ),
       ),
+    );
+  }
+}
+
+
+// 북마크한 문장 리스트를 보여주는 BottomSheet 위젯
+class BookmarkedSentencesSheet extends StatefulWidget {
+  const BookmarkedSentencesSheet({Key? key}) : super(key: key);
+
+  @override
+  State<BookmarkedSentencesSheet> createState() => _BookmarkedSentencesSheetState();
+}
+
+class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
+  List<dynamic> _bookmarks = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookmarks();
+  }
+
+  Future<void> _fetchBookmarks() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final url = Uri.parse('http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmarks');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          _bookmarks = json.decode(response.body);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = '불러오기 실패: ${response.body}';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = '네트워크 오류: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF23272F),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                '보관한 표현',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : _error != null
+                        ? Center(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(color: Colors.redAccent),
+                            ),
+                          )
+                        : _bookmarks.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  '보관한 표현이 없습니다.',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              )
+                            : ListView.separated(
+                                controller: scrollController,
+                                itemCount: _bookmarks.length,
+                                separatorBuilder: (_, __) => Divider(
+                                  color: Colors.grey[800],
+                                  height: 1,
+                                ),
+                                itemBuilder: (context, idx) {
+                                  final item = _bookmarks[idx];
+                                  return ListTile(
+                                    title: Text(
+                                      item['sentence'] ?? '',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    subtitle: (item['translate'] ?? '').toString().isNotEmpty
+                                        ? Text(
+                                            item['translate'],
+                                            style: const TextStyle(
+                                              color: Colors.blueAccent,
+                                              fontSize: 14,
+                                            ),
+                                          )
+                                        : null,
+                                    trailing: Text(
+                                      (item['createdAt'] ?? '').toString().split('T').first,
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// 단어 북마크 리스트를 보여주는 BottomSheet 위젯
+class BookmarkedWordsSheet extends StatefulWidget {
+  const BookmarkedWordsSheet({Key? key}) : super(key: key);
+
+  @override
+  State<BookmarkedWordsSheet> createState() => _BookmarkedWordsSheetState();
+}
+
+class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
+  List<dynamic> _bookmarks = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookmarks();
+  }
+
+  Future<void> _fetchBookmarks() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final url = Uri.parse('http://114.202.2.224:8888/api/public/site/apiTutorWordBookmarks');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          _bookmarks = json.decode(response.body);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = '불러오기 실패: ${response.body}';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = '네트워크 오류: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF23272F),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[700],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                '보관한 단어',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : _error != null
+                        ? Center(
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(color: Colors.redAccent),
+                            ),
+                          )
+                        : _bookmarks.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  '보관한 단어가 없습니다.',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              )
+                            : ListView.separated(
+                                controller: scrollController,
+                                itemCount: _bookmarks.length,
+                                separatorBuilder: (_, __) => Divider(
+                                  color: Colors.grey[800],
+                                  height: 1,
+                                ),
+                                itemBuilder: (context, idx) {
+                                  final item = _bookmarks[idx];
+                                  return ListTile(
+                                    title: Text(
+                                      item['word'] ?? '',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    subtitle: (item['translate'] ?? '').toString().isNotEmpty
+                                        ? Text(
+                                            item['translate'],
+                                            style: const TextStyle(
+                                              color: Colors.blueAccent,
+                                              fontSize: 14,
+                                            ),
+                                          )
+                                        : null,
+                                    trailing: Text(
+                                      (item['createdAt'] ?? '').toString().split('T').first,
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

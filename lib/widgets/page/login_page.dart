@@ -39,6 +39,9 @@ class _LoginPageState extends State<LoginPage> {
             await prefs.setString('user', jsonEncode(user));
             // tutorOnboardYn 값으로 온보딩 여부 저장
             final isOnboarded = user['tutorOnboardYn'] == true;
+            final currentChapter= user['tutorCurrentChapterId'] != null ? user['tutorCurrentChapterId'].toString() : '';
+            await prefs.setString('current_chapter', currentChapter);
+            await prefs.setInt('current_course', user['tutorCurrentCourseId'] ?? 0);
             await prefs.setBool('is_onboarded', isOnboarded);
             print('isOnboarded: $isOnboarded');
           }

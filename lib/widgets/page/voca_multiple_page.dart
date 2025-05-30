@@ -25,6 +25,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
   bool hasAnswered = false;
   bool _isLoading = false;
   List<Map<String, dynamic>> questions = [];
+  bool isBookmarked = false;
 
   @override
   void initState() {
@@ -117,6 +118,45 @@ class _VocaMultipleState extends State<VocaMultiple> {
     );
   }
 
+  // 2. 단어 북마크 저장 함수 추가
+  Future<void> _saveWordBookmark(String word, String translate) async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('jwt_token') ?? '';
+    final url =
+        Uri.parse('http://114.202.2.224:8888/api/public/site/apiTutorWordBookmark');
+    final body = jsonEncode({
+      "word": word,
+      "translate": translate,
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          isBookmarked = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('단어가 북마크에 저장되었습니다.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('북마크 저장 실패: ${response.body}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('네트워크 오류: $e')),
+      );
+    }
+  }
+
   void fetchVocabQuestions({
     required String userId,
     required String text,
@@ -191,6 +231,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
         currentQuestionIndex++;
         selectedAnswer = null;
         hasAnswered = false;
+        isBookmarked = false;
       });
     } else {
       // End of quiz, show completion or exit
@@ -416,11 +457,24 @@ class _VocaMultipleState extends State<VocaMultiple> {
                           ),
                         ),
                         const Spacer(),
-                        Icon(
-                          Icons.flag_outlined,
-                          color: isAnswerCorrect
-                              ? Colors.green[400]
-                              : Colors.red[400],
+                        IconButton(
+                          icon: Icon(
+                            isBookmarked
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                            color: isAnswerCorrect
+                                ? Colors.green[400]
+                                : Colors.red[400],
+                          ),
+                          onPressed: isBookmarked
+                              ? null
+                              : () {
+                                  final word = currentQuestion['correctAnswer'];
+                                  final translate =
+                                      currentQuestion['translatedAnswer'] ?? '';
+                                  _saveWordBookmark(word, translate);
+                                },
+                          tooltip: '단어 북마크',
                         ),
                       ],
                     ),

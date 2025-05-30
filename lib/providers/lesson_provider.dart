@@ -6,19 +6,28 @@ import 'package:shared_preferences/shared_preferences.dart'; // 추가
 class LessonProvider with ChangeNotifier {
   List<Map<String, dynamic>> _lessons = [];
   bool _isLoading = false;
+  String? currentChapterName;
+  String? currentChapter;
 
   List<Map<String, dynamic>> get lessons => _lessons;
   bool get isLoading => _isLoading;
 
-  Future<void> fetchLessons(BuildContext? context) async {
-    if (_lessons.isNotEmpty) return; // 이미 데이터를 로드한 경우 재호출 방지
+Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) async {
+    print('fetchLessons called');
+    print("_lessons: $_lessons");
+    if (_lessons.isNotEmpty && !forceReload) return; // 이미 데이터를 로드한 경우 재호출 방지
 
     _isLoading = true;
     notifyListeners();
+    print('Loading lessons...');
 
     // SharedPreferences에서 JWT 토큰 가져오기
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
+    final currentCourse = prefs.getInt('current_course') ?? 0;
+    final currentChapterFromPrefs = prefs.getString('current_chapter') ?? '';
+    print('Current Course: $currentCourse');
+    currentChapter = currentChapterFromPrefs;
     print('JWT Token: $jwt');
     if (jwt.isEmpty) {
       print('JWT Token is empty');
@@ -32,7 +41,7 @@ class LessonProvider with ChangeNotifier {
     }
 
     final Uri uri = Uri.parse(
-        'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/32');
+        'http://114.202.2.224:8888/api/public/site/apiGetCourseDetail/$currentCourse');
 
     final response = await http.get(
       uri,
@@ -54,6 +63,15 @@ class LessonProvider with ChangeNotifier {
                 'chapterName': item['chapterName'],
               })
           .toList();
+
+      print("currentChapter = $currentChapter");
+      // current_chapter에 해당하는 chapterName 저장
+      final lesson = _lessons.firstWhere(
+        (item) => item['chapterId'].toString() == currentChapter,
+        orElse: () => {},
+      );
+      currentChapterName = lesson.isNotEmpty ? lesson['chapterName'] : null;
+      print("currentChapterName = $currentChapterName");
     } else if (response.statusCode == 401) {
       // 인증 실패 시 반복 호출 방지 및 로그인 페이지로 이동
       print('Unauthorized: JWT 인증 실패');

@@ -43,7 +43,7 @@ class VideoPlayerPage extends StatefulWidget {
   final String chapterId;
   final String? title;
 
-  const VideoPlayerPage({
+  const VideoPlayerPage({super.key, 
     this.title,
     required this.chapterId,
   });

@@ -24,6 +24,7 @@ class PronunciationAssessment extends StatefulWidget {
 }
 
 class _PronunciationAssessmentState extends State<PronunciationAssessment> {
+  Set<String> _bookmarkedSentences = {};
   int _currentIndex = 0;
   bool _isRecording = false;
   bool _isProcessing = false;
@@ -51,6 +52,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   void initState() {
     super.initState();
     _loadConversationDataWithCache();
+    _fetchBookmarks();
   }
 
   String _formatDuration(double? seconds) {
@@ -225,6 +227,127 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
         _isRecording = false;
         _isProcessing = false;
       });
+    }
+  }
+
+  Future<void> _fetchBookmarks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('jwt_token') ?? '';
+    final url = Uri.parse(
+        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmarks');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _bookmarkedSentences = data
+              .map((e) => e['sentence']?.toString() ?? '')
+              .where((s) => s.isNotEmpty)
+              .toSet();
+        });
+      }
+    } catch (e) {
+      // 에러 무시 또는 필요시 처리
+    }
+  }
+
+  Future<String> _fetchTranslationForBookmark(String sentence) async {
+    try {
+      final Uri uri = Uri.parse("http://192.168.0.147:8000/translate")
+          .replace(queryParameters: {'text': sentence});
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['translation'] ?? "";
+      }
+    } catch (e) {
+      // 에러 무시 또는 필요시 처리
+    }
+    return "";
+  }
+
+  Future<void> _saveBookmark() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('jwt_token') ?? '';
+    final chapterId = widget.chapter;
+    final sentence = _conversationData![_currentIndex];
+    final translate = await _fetchTranslationForBookmark(sentence);
+
+    final url = Uri.parse(
+        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmark');
+    final body = jsonEncode({
+      "chapter_id": chapterId,
+      "sentence": sentence,
+      "translate": translate,
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+        body: body,
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          _bookmarkedSentences.add(sentence);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('북마크가 저장되었습니다.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('북마크 저장 실패: ${response.body}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('네트워크 오류: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteBookmark() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('jwt_token') ?? '';
+    final sentence = _conversationData![_currentIndex];
+
+    final url = Uri.parse(
+        'http://114.202.2.224:8888/api/public/site/apiTutorSentenceBookmark?sentence=${Uri.encodeComponent(sentence)}');
+
+    try {
+      final response = await http.delete(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          _bookmarkedSentences.remove(sentence);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('북마크가 삭제되었습니다.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('북마크 삭제 실패: ${response.body}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('네트워크 오류: $e')),
+      );
     }
   }
 
@@ -416,13 +539,37 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            '따라해보세요:',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: Colors.white,
-                            ),
+                          // 상단: "따라해보세요:" + 북마크 버튼
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '따라해보세요:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  _bookmarkedSentences.contains(
+                                          _conversationData![_currentIndex])
+                                      ? Icons.bookmark
+                                      : Icons.bookmark_border,
+                                  color: Colors.blue,
+                                ),
+                                onPressed: () {
+                                  if (_bookmarkedSentences.contains(
+                                      _conversationData![_currentIndex])) {
+                                    _deleteBookmark();
+                                  } else {
+                                    _saveBookmark();
+                                  }
+                                },
+                                tooltip: '북마크',
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -433,7 +580,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                             ),
                             textAlign: TextAlign.center,
                           ),
-// Add speaker button
+                          // Add speaker button
                           Align(
                             alignment: Alignment.bottomRight,
                             child: IconButton(
@@ -445,14 +592,9 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                                   final textToSpeak =
                                       _conversationData![_currentIndex];
                                   print('Playing text: $textToSpeak');
-
-                                  // Use FlutterTTS to speak the text
-                                  await _flutterTts
-                                      .setLanguage("en-US"); // Set the language
-                                  await _flutterTts
-                                      .setSpeechRate(0.8); // Adjust speech rate
-                                  await _flutterTts
-                                      .speak(textToSpeak); // Speak the text
+                                  await _flutterTts.setLanguage("en-US");
+                                  await _flutterTts.setSpeechRate(0.8);
+                                  await _flutterTts.speak(textToSpeak);
                                 }
                               },
                             ),
