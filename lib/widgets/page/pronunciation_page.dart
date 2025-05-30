@@ -117,7 +117,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   // Fetch conversation data from API
   Future<void> _fetchConversationDataFromApi(String cacheKey) async {
     final url = Uri.parse(
-        'http://192.168.0.147:8000/conversation?course=${widget.course}&lesson=${widget.lesson}&chapter=${widget.chapter}&text=${widget.text}');
+        'https://192.168.0.147/internal/conversation?course=${widget.course}&lesson=${widget.lesson}&chapter=${widget.chapter}&text=${widget.text}');
     try {
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',
@@ -259,7 +259,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
   Future<String> _fetchTranslationForBookmark(String sentence) async {
     try {
-      final Uri uri = Uri.parse("http://192.168.0.147:8000/translate")
+      final Uri uri = Uri.parse("https://192.168.0.147/internal/translate")
           .replace(queryParameters: {'text': sentence});
       final response = await http.get(uri);
 
@@ -383,7 +383,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
       }
 
       // Send to server
-      final url = 'http://192.168.0.147:8000/assess_pronunciation';
+      final url = 'https://192.168.0.147/internal/assess_pronunciation';
       final xhr = html.HttpRequest();
 
       xhr.open('POST', url);

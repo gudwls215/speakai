@@ -166,7 +166,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
     required void Function(List<Map<String, dynamic>> result) onSuccess,
     required void Function(String error) onError,
   }) async {
-    final url = Uri.parse('http://192.168.0.147:8000/vocab');
+    final url = Uri.parse('https://192.168.0.147/internal/vocab');
 
     final payload = {
       "user_id": userId,

@@ -14,10 +14,10 @@ class SSEHandler {
     //final targetUrl = 'http://192.168.0.147:8001/chat?user_message=$message';
         // URL 생성
     final Uri targetUri = Uri(
-      scheme: 'http',
+      scheme: 'https',
       host: '192.168.0.147',
-      port: 8000,
-      path: path,
+      //port: 8001,
+      path: "internal/$path",
       queryParameters: parameters, // 딕셔너리로 쿼리 파라미터 추가
     );
 
