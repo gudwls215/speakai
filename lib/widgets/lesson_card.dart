@@ -39,7 +39,7 @@ class _LessonCardState extends State<LessonCard> {
         'icon': Icons.play_arrow,
         'text': '오늘의 수업',
         'color': Colors.amber,
-        'title': '중년 성인의 호흡 불편 평가',
+        'title': widget.title,
         'chapterId': widget.chapter,
       },
       {'icon': Icons.mic, 'text': '스피킹 연습', 'color': Colors.pink[300]},

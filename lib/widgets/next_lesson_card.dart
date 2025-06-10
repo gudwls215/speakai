@@ -33,10 +33,14 @@ class NextLessonCard extends StatelessWidget {
             ),
             const Icon(Icons.mic, color: Colors.pink, size: 50),
             const SizedBox(height: 16),
-            Text(chapterName,
-                style: const TextStyle(color: Colors.white, fontSize: 18)),
-            Text(chapterName,
-                style: TextStyle(color: Colors.grey, fontSize: 14)),
+            Text(
+              chapterName.isNotEmpty ? chapterName : '',
+              style: const TextStyle(color: Colors.white, fontSize: 18),
+            ),
+            Text(
+              chapterName.isNotEmpty ? chapterName : '강의 탭에서 챕터를 선택하세요',
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
@@ -44,7 +48,7 @@ class NextLessonCard extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) => VideoPlayerPage(
-                      title: chapter,
+                      title: chapterName,
                       chapterId: chapter,
                     ),
                   ),

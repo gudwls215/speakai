@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +17,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
   List<dynamic> _posts = [];
   bool _isLoading = true;
   String? _error;
+  int _selectedCategory = 0; // 0: 트렌딩, 1: 신규, 2: 탑 차트
 
   @override
   void initState() {
@@ -22,7 +25,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
     _fetchPosts();
   }
 
-  Future<void> _fetchPosts() async {
+    Future<void> _fetchPosts() async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -31,8 +34,25 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
       final dio = Dio();
+
+      // endpoint 하나로 통일
+      String endpoint = '$apiBaseUrl/api/public/site/apiGetTutorFreeTalk';
+      String type;
+      switch (_selectedCategory) {
+        case 1:
+          type = 'new';
+          break;
+        case 2:
+          type = 'top';
+          break;
+        case 0:
+        default:
+          type = 'trending';
+      }
+
       final response = await dio.get(
-        '$apiBaseUrl/api/public/site/apiGetTutorFreeTalk',
+        endpoint,
+        queryParameters: {'type': type}, // type 파라미터 추가
         options: Options(
           headers: {'Authorization': 'Bearer $jwt'},
         ),
@@ -46,6 +66,15 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
         _error = '데이터를 불러오지 못했습니다.';
         _isLoading = false;
       });
+    }
+  }
+
+  void _onCategoryTap(int idx) {
+    if (_selectedCategory != idx) {
+      setState(() {
+        _selectedCategory = idx;
+      });
+      _fetchPosts();
     }
   }
 
@@ -76,13 +105,19 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.history, color: Colors.white),
-            onPressed: () {},
-          ),
+          // IconButton(
+          //   icon: const Icon(Icons.history, color: Colors.white),
+          //   onPressed: () {},
+          // ),
           IconButton(
             icon: const Icon(Icons.favorite_border, color: Colors.white),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const FavoritePostsPage()),
+              );
+            },
           ),
         ],
       ),
@@ -95,23 +130,32 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildCategoryChip(
-                    icon: Icons.local_fire_department,
-                    label: '트렌딩',
-                    isSelected: true,
+                  GestureDetector(
+                    onTap: () => _onCategoryTap(0),
+                    child: _buildCategoryChip(
+                      icon: Icons.local_fire_department,
+                      label: '트렌딩',
+                      isSelected: _selectedCategory == 0,
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  _buildCategoryChip(
-                    icon: Icons.access_time,
-                    label: '신규',
-                    isSelected: false,
+                  GestureDetector(
+                    onTap: () => _onCategoryTap(1),
+                    child: _buildCategoryChip(
+                      icon: Icons.access_time,
+                      label: '신규',
+                      isSelected: _selectedCategory == 1,
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  _buildCategoryChip(
-                    icon: Icons.bar_chart,
-                    label: '탑 차트',
-                    isSelected: false,
-                    hasDropdown: true,
+                  GestureDetector(
+                    onTap: () => _onCategoryTap(2),
+                    child: _buildCategoryChip(
+                      icon: Icons.bar_chart,
+                      label: '탑 차트',
+                      isSelected: _selectedCategory == 2,
+                      hasDropdown: true,
+                    ),
                   ),
                 ],
               ),
@@ -138,7 +182,8 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
                             description: post['description'] ?? '',
                             engagementCount:
                                 post['engagementCount']?.toString() ?? '',
-                            postId: post['postId']?.toString() ?? '',
+                            postId: post['id']?.toString() ?? '',
+                            isFavorite: post['favorite'],
                           );
                         },
                       ),
@@ -155,12 +200,11 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
           );
 
           if (result != null) {
-            // 결과 처리
+            // 테스트하기 버튼 결과 처리
             print('User Role: ${result['userRole']}');
             print('AI Role: ${result['aiRole']}');
             print('Description: ${result['description']}');
 
-            // 예: FreeTalkMessage로 이동
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -174,6 +218,10 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
                 ),
               ),
             );
+          } else {
+            // 공유하기가 성공적으로 완료된 경우 바텀시트에서 Navigator.pop(context)만 호출되므로,
+            // 여기서 리스트를 새로고침
+            await _fetchPosts();
           }
         },
         backgroundColor: Colors.blue,
@@ -224,7 +272,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
   }
 }
 
-class PostCard extends StatelessWidget {
+class PostCard extends StatefulWidget {
   final String profileEmoji;
   final String username;
   final String title;
@@ -233,6 +281,7 @@ class PostCard extends StatelessWidget {
   final String description;
   final String engagementCount;
   final String postId;
+  final bool isFavorite;
 
   const PostCard({
     Key? key,
@@ -244,7 +293,58 @@ class PostCard extends StatelessWidget {
     required this.userRole,
     required this.aiRole,
     required this.postId,
+    required this.isFavorite,
   }) : super(key: key);
+
+  @override
+  State<PostCard> createState() => _PostCardState();
+}
+
+class _PostCardState extends State<PostCard> {
+  late bool _isFavorite;
+
+  @override
+  void initState() {
+    super.initState();
+    _isFavorite = widget.isFavorite; // 초기값을 widget에서 받아옴
+  }
+
+  Future<void> _toggleFavorite() async {
+    final bool newFavorite = !_isFavorite; // 현재 상태의 반대값을 서버에 전송
+    setState(() {
+      _isFavorite = newFavorite;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final dio = Dio();
+      // 관심 등록/해제 API 호출
+      final response = await dio.post(
+        '$apiBaseUrl/api/public/site/apiToggleFavoriteTalk',
+        data: {
+          'talkId': widget.postId,
+          'favorite': newFavorite, // 반전된 값 전송
+        },
+        options: Options(headers: {'Authorization': 'Bearer $jwt'}),
+      );
+      if (response.statusCode != 200) {
+        // 실패 시 상태 복구
+        setState(() {
+          _isFavorite = !newFavorite;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('관심 등록 처리에 실패했습니다.')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isFavorite = !newFavorite;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('네트워크 오류로 관심 등록 처리에 실패했습니다.')),
+      );
+    }
+  }
 
   void _showPostDetails(BuildContext context) {
     showModalBottomSheet(
@@ -252,14 +352,14 @@ class PostCard extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => PostDetailBottomSheet(
-        profileEmoji: profileEmoji,
-        username: username,
-        title: title,
-        userRole: userRole,
-        aiRole: aiRole,
-        description: description,
-        engagementCount: engagementCount,
-        postId: postId,
+        profileEmoji: widget.profileEmoji,
+        username: widget.username,
+        title: widget.title,
+        userRole: widget.userRole,
+        aiRole: widget.aiRole,
+        description: widget.description,
+        engagementCount: widget.engagementCount,
+        postId: widget.postId,
       ),
     );
   }
@@ -267,95 +367,96 @@ class PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () => _showPostDetails(context),
-        child: Card(
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          color: const Color(0xFF1F2937),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF374151),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          profileEmoji,
-                          style: const TextStyle(fontSize: 20),
-                        ),
+      onTap: () => _showPostDetails(context),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        color: const Color(0xFF1F2937),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF374151),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        widget.profileEmoji,
+                        style: const TextStyle(fontSize: 20),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          username,
-                          style: TextStyle(
-                            color: Colors.grey.shade400,
-                            fontSize: 14,
-                          ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.username,
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 14,
                         ),
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.favorite_border,
-                        color: Colors.white,
                       ),
-                      onPressed: () {},
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(
+                      _isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: _isFavorite ? Colors.red : Colors.white,
                     ),
-                  ],
+                    onPressed: _toggleFavorite,
+                  ),
+                ],
+              ),
+              if (widget.description.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  widget.description,
+                  style: TextStyle(
+                    color: Colors.grey.shade300,
+                    fontSize: 14,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                if (description.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: Colors.grey.shade300,
-                      fontSize: 14,
-                    ),
-                    maxLines: 2, // 최대 2줄로 제한
-                    overflow: TextOverflow.ellipsis, // 길 경우 ...으로 대체
-                  ),
-                ],
-                if (engagementCount.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      engagementCount,
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
               ],
-            ),
+              if (widget.engagementCount.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    widget.engagementCount,
+                    style: TextStyle(
+                      color: Colors.grey.shade400,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 }
 
@@ -371,6 +472,22 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
   final TextEditingController _userRoleController = TextEditingController();
   final TextEditingController _aiRoleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+
+  final List<String> _emojiOptions = [
+    '🗣️',
+    '👩‍🎓',
+    '👨‍💻',
+    '🧑‍🏫',
+    '🦸',
+    '🦸‍♀️',
+    '🧑‍🎤',
+    '🧑‍🚀',
+    '🧑‍🍳',
+    '🧑‍🎨',
+    '🧑‍🔬',
+    '🧑‍⚕️'
+  ];
+  String _selectedEmoji = '🗣️';
 
   @override
   void dispose() {
@@ -390,10 +507,71 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
         'userRole': userRole,
         'aiRole': aiRole,
         'description': description,
+        'profileEmoji': _selectedEmoji, // 선택한 이모지 전달
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('모든 필드를 입력해주세요.')),
+      );
+    }
+  }
+
+  Future<void> _onSharePressed() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userString = prefs.getString('user');
+    final jwt = prefs.getString('jwt_token') ?? '';
+    if (userString != null) {
+      try {
+        final userMap = json.decode(userString);
+        final nickname = userMap['nickname'];
+
+        final title = _descriptionController.text.trim().isNotEmpty
+            ? _descriptionController.text.trim().split('\n').first
+            : '';
+        final userRole = _userRoleController.text.trim();
+        final aiRole = _aiRoleController.text.trim();
+        final description = _descriptionController.text.trim();
+        final profileEmoji = _selectedEmoji; // 사용자 선택값 사용
+
+        // TutorFreeTalkEntity에 맞게 파라미터 구성
+        final params = {
+          "username": nickname,
+          "title": title,
+          "userRole": userRole,
+          "aiRole": aiRole,
+          "description": description,
+          "profileEmoji": profileEmoji,
+        };
+
+        final dio = Dio();
+        final response = await dio.post(
+          '$apiBaseUrl/api/public/site/apiInsertTutorFreeTalk',
+          data: params,
+          options: Options(
+            headers: {'Authorization': 'Bearer $jwt'},
+          ),
+        );
+
+        if (response.statusCode == 200) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('공유가 완료되었습니다.')),
+          );
+          Navigator.pop(context); // 바텀시트 닫기
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('공유 실패: ${response.data}')),
+          );
+        }
+      } catch (e) {
+        print('user 파싱 오류 또는 요청 실패: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('공유 중 오류가 발생했습니다.')),
+        );
+      }
+    } else {
+      print('user 값 없음');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('user 값 없음')),
       );
     }
   }
@@ -431,6 +609,49 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
             ),
           ),
           const Divider(color: Color(0xFF333333)),
+          // ▼▼▼ 이모지 선택 UI 추가 ▼▼▼
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: SizedBox(
+              height: 48,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _emojiOptions.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, idx) {
+                  final emoji = _emojiOptions[idx];
+                  final isSelected = emoji == _selectedEmoji;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedEmoji = emoji;
+                      });
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.blue[700] : Colors.grey[800],
+                        shape: BoxShape.circle,
+                        border: isSelected
+                            ? Border.all(color: Colors.blue, width: 2)
+                            : null,
+                      ),
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      child: Text(
+                        emoji,
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: isSelected ? Colors.white : Colors.grey[300],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
           // Input fields
           Expanded(
             child: ListView(
@@ -484,22 +705,48 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
           // Submit button
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: _onSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _onSubmit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      '테스트하기',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: const Text(
-                '완료',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _onSharePressed,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey[700],
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      '공유하기',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
@@ -592,10 +839,10 @@ class PostDetailBottomSheet extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.favorite_border, color: Colors.white),
-                  onPressed: () {},
-                ),
+                // IconButton(
+                //   icon: const Icon(Icons.favorite_border, color: Colors.white),
+                //   onPressed: () {},
+                // ),
               ],
             ),
           ),
@@ -896,26 +1143,166 @@ class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: _onSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: double.infinity,
+              height: 60, // 버튼 높이 크게
+              child: ElevatedButton(
+                onPressed: () {
+                  final userRole = _userRoleController.text.trim();
+                  final aiRole = _aiRoleController.text.trim();
+                  final description = _descriptionController.text.trim();
+
+                  if (userRole.isNotEmpty &&
+                      aiRole.isNotEmpty &&
+                      description.isNotEmpty) {
+                    Navigator.pop(context); // 먼저 바텀시트 닫기
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FreeTalkMessage(
+                          title: '나만의 시나리오',
+                          emoji: '🎨',
+                          userRole: userRole,
+                          aiRole: aiRole,
+                          description: description,
+                          postId:
+                              DateTime.now().millisecondsSinceEpoch.toString(),
+                        ),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('모든 필드를 입력해주세요.')),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  elevation: 6,
+                  shadowColor: Colors.blueAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16), // 더 둥글게
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
                 ),
-              ),
-              child: const Text(
-                '수정 완료',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.chat_bubble_outline,
+                        color: Colors.white, size: 28),
+                    SizedBox(width: 12),
+                    Text(
+                      '대화 시작',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// 1. 관심 등록 리스트만 보여주는 화면 추가
+class FavoritePostsPage extends StatefulWidget {
+  const FavoritePostsPage({Key? key}) : super(key: key);
+
+  @override
+  State<FavoritePostsPage> createState() => _FavoritePostsPageState();
+}
+
+class _FavoritePostsPageState extends State<FavoritePostsPage> {
+  List<dynamic> _favoritePosts = [];
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFavoritePosts();
+  }
+
+  Future<void> _fetchFavoritePosts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final dio = Dio();
+
+      // 관심 등록된 리스트만 가져오는 API 엔드포인트로 수정하세요
+      final response = await dio.get(
+        '$apiBaseUrl/api/public/site/apiGetTutorFreeTalkFavorite',
+        options: Options(
+          headers: {'Authorization': 'Bearer $jwt'},
+        ),
+      );
+      setState(() {
+        _favoritePosts = response.data is List ? response.data : [];
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = '데이터를 불러오지 못했습니다.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          '관심 등록한 시나리오',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Text(_error!, style: TextStyle(color: Colors.white)))
+              : _favoritePosts.isEmpty
+                  ? const Center(
+                      child: Text('관심 등록된 시나리오가 없습니다.',
+                          style: TextStyle(color: Colors.white)),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: _favoritePosts.length,
+                      itemBuilder: (context, index) {
+                        final post = _favoritePosts[index];
+                        return PostCard(
+                          profileEmoji: post['profileEmoji'] ?? '🗣️',
+                          username: post['username'] ?? '',
+                          title: post['title'] ?? '',
+                          userRole: post['userRole'] ?? '',
+                          aiRole: post['aiRole'] ?? '',
+                          description: post['description'] ?? '',
+                          engagementCount:
+                              post['engagementCount']?.toString() ?? '',
+                          postId: post['id']?.toString() ?? '',
+                          isFavorite: post['favorite'],
+                        );
+                      },
+                    ),
     );
   }
 }

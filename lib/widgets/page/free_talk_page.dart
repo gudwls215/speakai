@@ -123,7 +123,6 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
     setState(() {});
   }
 
-
   void _sendMessage() async {
     final message = _textController.text;
 
@@ -298,8 +297,7 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
         )
         .text;
 
-    final Uri uri =
-        Uri.parse("$aiBaseUrl/hint").replace(queryParameters: {
+    final Uri uri = Uri.parse("$aiBaseUrl/hint").replace(queryParameters: {
       'user_id': "ttm",
       'pre_conversation': recentAiMessage, // 가장 최근 AI 메시지
       'user_role': widget.userRole, // 사용자 역할
@@ -522,10 +520,12 @@ class _TalkMessageState extends State<TalkMessage> {
 
   final FlutterTts flutterTts = FlutterTts();
 
+  bool _isHidden = false;
+
   Future<void> _speak(String text) async {
-    await flutterTts.setLanguage("en-US"); // 언어 설정
-    await flutterTts.setPitch(1.0); // 음 높이
-    await flutterTts.setSpeechRate(0.8); // 속도
+    await flutterTts.setLanguage("en-US");
+    await flutterTts.setPitch(1.0);
+    await flutterTts.setSpeechRate(0.8);
     await flutterTts.speak(text);
   }
 
@@ -536,8 +536,7 @@ class _TalkMessageState extends State<TalkMessage> {
       _isLoadingTranslate = true;
     });
 
-    final Uri uri = Uri.parse("$aiBaseUrl/translate")
-        .replace(queryParameters: {
+    final Uri uri = Uri.parse("$aiBaseUrl/translate").replace(queryParameters: {
       'text': widget.text,
     });
 
@@ -597,8 +596,7 @@ class _TalkMessageState extends State<TalkMessage> {
     // Get previous bot message
     final previousBotMessage = messages[currentIndex - 1].text;
 
-    final Uri uri = Uri.parse("$aiBaseUrl/feedback")
-        .replace(queryParameters: {
+    final Uri uri = Uri.parse("$aiBaseUrl/feedback").replace(queryParameters: {
       'user_id': "ttm",
       'user_message': widget.text,
       'pre_conversation': previousBotMessage,
@@ -646,9 +644,8 @@ class _TalkMessageState extends State<TalkMessage> {
                 widget.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              if (widget.isUser) const SizedBox(width: 20),
               if (widget.isUser)
-                const SizedBox(width: 20),
-              if (widget.isUser) // 좌측에 * 버튼 추가
                 Align(
                   alignment: Alignment.center,
                   child: IconButton(
@@ -691,75 +688,83 @@ class _TalkMessageState extends State<TalkMessage> {
                         : const Color(0xFF1F2937),
                     borderRadius: BorderRadius.circular(16.0),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.text,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                        ),
-                      ),
-                      if (_showTranslate) ...[
-                        const SizedBox(height: 8),
-                        if (_translateTextFromAPI.isNotEmpty) ...[
-                          const Divider(
+                  child: _isHidden
+                      ? const Text(
+                          '메시지가 가려졌습니다.',
+                          style: TextStyle(
                             color: Colors.grey,
-                            thickness: 1,
+                            fontStyle: FontStyle.italic,
                           ),
-                          const SizedBox(height: 4),
-                          IntrinsicWidth(
-                            child: Text(
-                              _translateTextFromAPI,
-                              style: TextStyle(
-                                color: Colors.teal[200],
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                      if (_showCommentKo) ...[
-                        const SizedBox(height: 8),
-                        if (_fixedTextFromAPI.isNotEmpty ||
-                            widget.fixedText.isNotEmpty) ...[
-                          const Divider(
-                            color: Colors.grey,
-                            thickness: 1,
-                          ),
-                          const SizedBox(height: 4),
-                          IntrinsicWidth(
-                            child: Text(
-                              _fixedTextFromAPI.isNotEmpty
-                                  ? _fixedTextFromAPI
-                                  : widget.fixedText,
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.text,
                               style: const TextStyle(
-                                color: Colors.amber,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                fontSize: 15,
                               ),
                             ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        if (_commentKoFromAPI.isNotEmpty ||
-                            widget.commentKo.isNotEmpty)
-                          IntrinsicWidth(
-                            child: Text(
-                              _commentKoFromAPI.isNotEmpty
-                                  ? _commentKoFromAPI
-                                  : widget.commentKo,
-                              style: TextStyle(
-                                color: Colors.teal[200],
-                                fontSize: 14,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
+                            if (_showTranslate) ...[
+                              const SizedBox(height: 8),
+                              if (_translateTextFromAPI.isNotEmpty) ...[
+                                const Divider(
+                                  color: Colors.grey,
+                                  thickness: 1,
+                                ),
+                                const SizedBox(height: 4),
+                                IntrinsicWidth(
+                                  child: Text(
+                                    _translateTextFromAPI,
+                                    style: TextStyle(
+                                      color: Colors.teal[200],
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                            if (_showCommentKo) ...[
+                              const SizedBox(height: 8),
+                              if (_fixedTextFromAPI.isNotEmpty ||
+                                  widget.fixedText.isNotEmpty) ...[
+                                const Divider(
+                                  color: Colors.grey,
+                                  thickness: 1,
+                                ),
+                                const SizedBox(height: 4),
+                                IntrinsicWidth(
+                                  child: Text(
+                                    _fixedTextFromAPI.isNotEmpty
+                                        ? _fixedTextFromAPI
+                                        : widget.fixedText,
+                                    style: const TextStyle(
+                                      color: Colors.amber,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 8),
+                              if (_commentKoFromAPI.isNotEmpty ||
+                                  widget.commentKo.isNotEmpty)
+                                IntrinsicWidth(
+                                  child: Text(
+                                    _commentKoFromAPI.isNotEmpty
+                                        ? _commentKoFromAPI
+                                        : widget.commentKo,
+                                    style: TextStyle(
+                                      color: Colors.teal[200],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ],
+                        ),
                 ),
               ),
             ],
@@ -796,9 +801,16 @@ class _TalkMessageState extends State<TalkMessage> {
                   ),
                   const SizedBox(width: 12),
                   IconButton(
-                    icon: const Icon(Icons.visibility_off,
-                        color: Colors.white70, size: 20),
-                    onPressed: () {},
+                    icon: Icon(
+                      _isHidden ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isHidden = !_isHidden;
+                      });
+                    },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),

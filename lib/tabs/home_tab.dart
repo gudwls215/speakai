@@ -9,6 +9,7 @@ import 'package:speakai/widgets/page/home_page.dart';
 import 'package:speakai/widgets/page/course_page.dart';
 import 'package:speakai/widgets/chat_bot.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/widgets/page/login_page.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({Key? key}) : super(key: key);
@@ -38,6 +39,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Color(0xFF1F2937),
+        automaticallyImplyLeading: false,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -48,7 +50,26 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                   builder: (context) => LessonListSheet(),
                 );
               },
-              child: CircleAvatar(backgroundImage: AssetImage('avatar.png')),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blueAccent, width: 2),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blueAccent.withOpacity(0.4),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    backgroundImage: AssetImage('avatar.png'),
+                    radius: 22,
+                  ),
+                ),
+              ),
             ),
             Expanded(
               child: Padding(
@@ -85,11 +106,17 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
               onTap: () async {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear(); // 모든 저장 정보 초기화
+                if (mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => LoginPage()),
+                    (route) => false,
+                  );
+                }
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('저장된 정보가 초기화되었습니다.')),
                 );
               },
-              child: Icon(Icons.notifications, color: Colors.white),
+              child: Icon(Icons.logout, color: Colors.white),
             ),
           ],
         ),
@@ -170,11 +197,31 @@ class _LessonListSheetState extends State<LessonListSheet> {
         },
       );
       if (response.statusCode == 200) {
+        // 첫 번째 챕터 ID 가져오기
+        final detailResponse = await http.get(
+          Uri.parse('$apiBaseUrl/api/public/site/apiGetCourseDetail/$courseId'),
+          headers: {
+            'Authorization': 'Bearer $jwt',
+            'Content-Type': 'application/json',
+          },
+        );
+        String? firstChapterId;
+        if (detailResponse.statusCode == 200) {
+          final List<dynamic> chapters = json.decode(detailResponse.body);
+          if (chapters.isNotEmpty) {
+            firstChapterId = chapters[0]['chapterId']?.toString();
+          }
+        }
         if (mounted) {
           // 선택한 코스 ID 저장
           prefs.setInt('current_course', int.parse(courseId));
+          // 첫 번째 챕터 ID 저장
+          if (firstChapterId != null) {
+            prefs.setString('current_chapter', firstChapterId);
+          }
           // 강의 상세정보 새로 불러오기
-          await Provider.of<LessonProvider>(context, listen: false).fetchLessons(context, forceReload: true);
+          await Provider.of<LessonProvider>(context, listen: false)
+              .fetchLessons(context, forceReload: true);
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('코스가 성공적으로 선택되었습니다.')),

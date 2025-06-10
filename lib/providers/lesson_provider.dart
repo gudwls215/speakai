@@ -16,8 +16,13 @@ class LessonProvider with ChangeNotifier {
 Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) async {
     print('fetchLessons called');
     print("_lessons: $_lessons");
-    if (_lessons.isNotEmpty && !forceReload) return; // 이미 데이터를 로드한 경우 재호출 방지
+    if (_isLoading) return; // 연속 요청 방지
+    if (_lessons.isNotEmpty && !forceReload) return; // 이미 데이터 있음
+    if (_lessons.isEmpty && _lessons.length >= 0 && !forceReload) return; // 빈 응답도 재요청 막기
 
+    _isLoading = true;
+    notifyListeners();
+    print('Loading lessons...');
     _isLoading = true;
     notifyListeners();
     print('Loading lessons...');

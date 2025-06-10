@@ -83,7 +83,7 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
   }
 
   Future<void> _setTutorCurrentCourse(
-      BuildContext context, String courseId) async {
+      BuildContext context, String courseId, String? firstChapterId) async {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
     try {
@@ -98,6 +98,9 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
       if (response.statusCode == 200) {
         if (mounted) {
           prefs.setInt('current_course', int.parse(courseId));
+          if (firstChapterId != null) {
+            prefs.setString('current_chapter', firstChapterId);
+          }
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('코스가 성공적으로 선택되었습니다.')),
@@ -188,7 +191,7 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              // ▼▼▼ 추가: 강의 선택하기 버튼 ▼▼▼
+              // 강의 선택하기 버튼
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: SizedBox(
@@ -204,8 +207,13 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
                     onPressed: _isLoading
                         ? null
                         : () async {
-                            await _setTutorCurrentCourse(
-                                context, widget.courseId.toString());
+                            String? firstChapterId;
+                            if (_details.isNotEmpty) {
+                              firstChapterId =
+                                  _details[0]['chapterId']?.toString();
+                            }
+                            await _setTutorCurrentCourse(context,
+                                widget.courseId.toString(), firstChapterId);
                           },
                     child: const Text('강의 선택하기'),
                   ),

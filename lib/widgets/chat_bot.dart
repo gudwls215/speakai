@@ -22,7 +22,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
   final SpeechToTextHandler _speechHandler = SpeechToTextHandler();
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  ChatProvider _chatProvider = ChatProvider();
+  final ChatProvider _chatProvider = ChatProvider();
 
   String _recognizedText = "";
   bool _isLoading = false;
@@ -798,11 +798,6 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                   ),
                                   Row(
                                     children: [
-                                      IconButton(
-                                        icon: Icon(Icons.volume_off,
-                                            color: Colors.white),
-                                        onPressed: () {},
-                                      ),
                                       IconButton(
                                         icon: Icon(Icons.more_vert,
                                             color: Colors.white),

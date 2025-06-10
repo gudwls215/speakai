@@ -143,7 +143,7 @@ class _HomePageState extends State<HomePage> {
                     result['courseId']!,
                     result['lessonId']!,
                     result['chapterId']!,
-                    "호흡기 관리",
+                    "",
                   ),
                 ),
               );

@@ -19,7 +19,7 @@ class ChatMessage extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: EdgeInsets.only(bottom: 16.0),
+        margin: EdgeInsets.only(bottom: 16.0, right: 8.0),
         padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         decoration: BoxDecoration(
           color: Colors.blue.shade800,
@@ -68,6 +68,6 @@ class ChatMessage extends StatelessWidget {
         ? widget!
         : isUser
             ? _buildUserMessage()
-            :  _buildBotMessage();
+            : _buildBotMessage();
   }
 }

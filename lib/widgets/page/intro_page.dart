@@ -88,7 +88,9 @@ class IntroPage extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    // TODO: 시작하기 동작 구현
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                    );
                   },
                   child: const Text(
                     '시작하기',
