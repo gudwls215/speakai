@@ -41,6 +41,8 @@ class _LessonCardState extends State<LessonCard> {
         'color': Colors.amber,
         'title': widget.title,
         'chapterId': widget.chapter,
+        'courseId': widget.course,
+
       },
       {'icon': Icons.mic, 'text': '스피킹 연습', 'color': Colors.pink[300]},
       {'icon': Icons.people, 'text': '단어 연습', 'color': Colors.purple[300]},
@@ -229,6 +231,7 @@ class _LessonCardState extends State<LessonCard> {
                 builder: (context) => VideoPlayerPage(
                   title: menuOptions[selectedMenuIndex!]['title'],
                   chapterId: menuOptions[selectedMenuIndex!]['chapterId'],
+                  courseId: menuOptions[selectedMenuIndex!]['courseId'],
                 ),
               ),
             );

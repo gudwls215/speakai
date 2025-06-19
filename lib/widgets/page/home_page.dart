@@ -121,7 +121,8 @@ class _HomePageState extends State<HomePage> {
         children: [
           ChapterTitle('다음 수업 바로가기 >'),
           NextLessonCard(lessonProvider.currentChapterName ?? '',
-              lessonProvider.currentChapter ?? ''),
+              lessonProvider.currentChapter ?? '',
+              lessonProvider.currentCourse ?? ''),
           ChapterTitle('점프인 레슨'),
           GestureDetector(
             onTap: () async {

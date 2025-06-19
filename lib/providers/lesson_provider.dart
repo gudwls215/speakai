@@ -9,6 +9,7 @@ class LessonProvider with ChangeNotifier {
   bool _isLoading = false;
   String? currentChapterName;
   String? currentChapter;
+  String? currentCourse;
 
   List<Map<String, dynamic>> get lessons => _lessons;
   bool get isLoading => _isLoading;
@@ -30,9 +31,10 @@ Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) asy
     // SharedPreferences에서 JWT 토큰 가져오기
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
-    final currentCourse = prefs.getInt('current_course') ?? 0;
+    final currentCourseFromPrefs = prefs.getInt('current_course') ?? 0;
     final currentChapterFromPrefs = prefs.getString('current_chapter') ?? '';
     print('Current Course: $currentCourse');
+    currentCourse = currentCourseFromPrefs.toString();
     currentChapter = currentChapterFromPrefs;
     print('JWT Token: $jwt');
     if (jwt.isEmpty) {

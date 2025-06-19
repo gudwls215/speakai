@@ -19,7 +19,7 @@ class ChatMessage extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: EdgeInsets.only(bottom: 16.0, right: 8.0),
+        margin: EdgeInsets.only(bottom: 16.0, right: 8.0, left: 8.0, top: 8.0),
         padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         decoration: BoxDecoration(
           color: Colors.blue.shade800,

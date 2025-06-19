@@ -4,8 +4,9 @@ import 'package:speakai/widgets/page/video_player_page.dart';
 class NextLessonCard extends StatelessWidget {
   final String chapterName;
   final String chapter;
+  final String course;
 
-  const NextLessonCard(this.chapterName, this.chapter, {Key? key})
+  const NextLessonCard(this.chapterName, this.chapter, this.course, {Key? key})
       : super(key: key);
 
   @override
@@ -50,6 +51,7 @@ class NextLessonCard extends StatelessWidget {
                     builder: (context) => VideoPlayerPage(
                       title: chapterName,
                       chapterId: chapter,
+                      courseId: course,
                     ),
                   ),
                 );
