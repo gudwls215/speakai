@@ -11,6 +11,9 @@ class VideoStreamingService {
   static const String courseApiUrl = '$apiBaseUrl/api/public/course';
   final Dio _dio = Dio();
   String? _authToken;
+  
+  // 임시 시청 시간 저장용 정적 Map (chapterId -> playTime)
+  static Map<String, double> _tempWatchTimes = {};
 
   VideoStreamingService({String? authToken}) {
     _authToken = authToken;
@@ -21,6 +24,21 @@ class VideoStreamingService {
     _dio.options.headers['Authorization'] = 'Bearer $_authToken';
     _dio.options.connectTimeout = const Duration(seconds: 30);
     _dio.options.receiveTimeout = const Duration(seconds: 30);
+  }
+
+  // 임시 시청 시간 저장
+  static void updateTempWatchTime(String chapterId, double playTime) {
+    _tempWatchTimes[chapterId] = playTime;
+  }
+
+  // 임시 시청 시간 가져오기
+  static double? getTempWatchTime(String chapterId) {
+    return _tempWatchTimes[chapterId];
+  }
+
+  // 임시 시청 시간 초기화 (필요한 경우)
+  static void clearTempWatchTime(String chapterId) {
+    _tempWatchTimes.remove(chapterId);
   }
 
   Future<Map<String, dynamic>?> getVideoInfo(String chapterId) async {
@@ -63,24 +81,6 @@ class VideoStreamingService {
     }
   }
 
-  // 시청 기록 가져오기
-  Future<Map<String, dynamic>?> getChapterLog({
-    required String chapterId,
-  }) async {
-    try {
-      final response = await _dio.get(
-        '$courseApiUrl/getChapterLog',
-        queryParameters: {
-          'chapterId': chapterId,
-        },
-      );
-      return response.data;
-    } catch (e) {
-      print('Error getting chapter log: $e');
-      return null;
-    }
-  }
-
   String getStreamingUrl(String chapterId, jwt) {
     return '$baseUrl/apiStreamCourseContent/$chapterId?token=$jwt';
   }
@@ -90,13 +90,15 @@ class VideoPlayerPage extends StatefulWidget {
   final String chapterId;
   final String? courseId;
   final String? title;
+  final dynamic chapterStudyTime; 
 
   const VideoPlayerPage({
-    super.key,
-    this.title,
+    Key? key,
+    required this.title,
     required this.chapterId,
     required this.courseId,
-  });
+    this.chapterStudyTime,
+  }) : super(key: key);
 
   @override
   State<VideoPlayerPage> createState() => _StreamingVideoPlayerState();
@@ -124,22 +126,27 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
     _loadWatchHistory();
   }
 
-  // 시청 기록 불러오기
+  // 시청 기록 불러오기 (VideoStreamingService의 임시 저장된 시간을 우선 체크)
   Future<void> _loadWatchHistory() async {
     try {
-      final historyData = await _streamingService.getChapterLog(
-        chapterId: widget.chapterId,
-      );
-
-      if (historyData != null && historyData['chapterPlayTime'] != null) {
-        _resumePosition = (historyData['chapterPlayTime'] as num).toDouble();
-        
-        // 5초 이상 시청한 경우에만 이어서 보기 제안
-        if (_resumePosition > 5) {
-          setState(() {
-            _showResumeDialog = true;
-          });
-        }
+      // 1. VideoStreamingService에서 임시 저장된 시청 시간을 먼저 확인
+      double? tempWatchTime = VideoStreamingService.getTempWatchTime(widget.chapterId);
+      
+      if (tempWatchTime != null && tempWatchTime > 0) {
+        // 임시 저장된 시간이 있으면 우선 사용
+        _resumePosition = tempWatchTime;
+        print('Using temp watch time from service: ${tempWatchTime}s');
+      } else if (widget.chapterStudyTime != null) {
+        // 임시 저장 시간이 없으면 chapterStudyTime 사용
+        _resumePosition = (widget.chapterStudyTime as num).toDouble();
+        print('Using chapterStudyTime: ${_resumePosition}s');
+      }
+      
+      // 5초 이상 시청한 경우에만 이어서 보기 제안
+      if (_resumePosition > 5) {
+        setState(() {
+          _showResumeDialog = true;
+        });
       }
     } catch (e) {
       print('Error loading watch history: $e');
@@ -296,6 +303,10 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
     // 마지막 저장 시간과 5초 이상 차이날 때만 저장
     if ((currentTime - _lastSavedTime).abs() >= 5) {
       try {
+        // 1. VideoStreamingService에 임시 시청 시간 저장
+        VideoStreamingService.updateTempWatchTime(widget.chapterId, currentTime);
+        
+        // 2. 서버에 시청 기록 저장
         final success = await _streamingService.updateChapterLog(
           chapterId: widget.chapterId,
           courseId: widget.courseId ?? '',
@@ -306,7 +317,7 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
 
         if (success) {
           _lastSavedTime = currentTime;
-          print('Progress saved: ${currentTime}s (${courseRate.toStringAsFixed(1)}%)');
+          print('Progress saved: ${currentTime}s (${courseRate.toStringAsFixed(1)}%) - Temp time updated');
         }
       } catch (e) {
         print('Error saving progress: $e');

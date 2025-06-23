@@ -71,7 +71,8 @@ class CoursePage extends StatelessWidget {
           Icons.book,
           lesson['courseId'].toString(),
           lesson['lessonId'].toString(),
-          lesson['chapterId'].toString()
+          lesson['chapterId'].toString(),
+          lesson['chapterStudyTime']
           ));
     }
 

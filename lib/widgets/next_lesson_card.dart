@@ -52,6 +52,7 @@ class NextLessonCard extends StatelessWidget {
                       title: chapterName,
                       chapterId: chapter,
                       courseId: course,
+                      chapterStudyTime: 0.0,
                     ),
                   ),
                 );

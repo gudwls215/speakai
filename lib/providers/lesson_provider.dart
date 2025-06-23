@@ -69,6 +69,7 @@ Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) asy
                 'lessonId': item['lessonId'],
                 'lessonName': item['lessonName'],
                 'chapterName': item['chapterName'],
+                'chapterStudyTime': item['chapterStudyTime'],
               })
           .toList();
 

@@ -14,9 +14,10 @@ class LessonCard extends StatefulWidget {
   final String course;
   final String lesson;
   final String chapter;
+  final dynamic chapterStudyTime;
 
   const LessonCard(this.index, this.title, this.subtitle, this.icon,
-      this.course, this.lesson, this.chapter,
+      this.course, this.lesson, this.chapter, this.chapterStudyTime, 
       {Key? key})
       : super(key: key);
 
@@ -232,6 +233,7 @@ class _LessonCardState extends State<LessonCard> {
                   title: menuOptions[selectedMenuIndex!]['title'],
                   chapterId: menuOptions[selectedMenuIndex!]['chapterId'],
                   courseId: menuOptions[selectedMenuIndex!]['courseId'],
+                  chapterStudyTime: widget.chapterStudyTime,
                 ),
               ),
             );

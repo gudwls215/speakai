@@ -33,8 +33,7 @@ class _ChatBotInputState extends State<ChatBotInput> {
     required String userId,
     required String userMessage,
   }) async {
-    final Uri uri =
-        Uri.parse("$aiBaseUrl/intent").replace(queryParameters: {
+    final Uri uri = Uri.parse("$aiBaseUrl/intent").replace(queryParameters: {
       'user_id': userId,
       'user_message': userMessage,
       'stream': 'false',
@@ -487,8 +486,8 @@ class _ChatBotInputState extends State<ChatBotInput> {
           ));
         });
 
-        final Uri uri = Uri.parse("$aiBaseUrl/level/questions")
-            .replace(queryParameters: {
+        final Uri uri =
+            Uri.parse("$aiBaseUrl/level/questions").replace(queryParameters: {
           'user_id': "ttm",
         });
 
