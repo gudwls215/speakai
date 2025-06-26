@@ -25,13 +25,17 @@ class PronunciationAssessment extends StatefulWidget {
 }
 
 class _PronunciationAssessmentState extends State<PronunciationAssessment> {
+  bool _isLoadingConversation = true;
   Set<String> _bookmarkedSentences = {};
   int _currentIndex = 0;
   bool _isRecording = false;
   bool _isProcessing = false;
+  String? _currentTranslation;
   Map<String, dynamic>? _assessmentResult;
   List<Map<String, dynamic>>? _wordResults;
-  List<String>? _conversationData;
+  //List<String>? _conversationData;
+  List<Map<String, dynamic>>? _conversationList;
+
   final FlutterTts _flutterTts = FlutterTts();
 
   final errorCounts = {
@@ -74,6 +78,9 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
   // Load conversation data with cache
   Future<void> _loadConversationDataWithCache() async {
+    setState(() {
+      _isLoadingConversation = true;
+    });
     final cacheKey = _generateCacheKey();
 
     try {
@@ -81,38 +88,46 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
       final cachedData = await _loadCachedConversationData(cacheKey);
 
       if (cachedData != null && cachedData.isNotEmpty) {
-        // Use cached data
         setState(() {
-          _conversationData = cachedData;
+          _conversationList = cachedData['fullList'];
+          _isLoadingConversation = false;
         });
       } else {
-        // Fetch from API if not in cache
         await _fetchConversationDataFromApi(cacheKey);
+        setState(() {
+          _isLoadingConversation = false;
+        });
       }
     } catch (e) {
       print("Error loading cached conversation data: $e");
-      // Fallback to API if cache fails
       await _fetchConversationDataFromApi(cacheKey);
+      setState(() {
+        _isLoadingConversation = false;
+      });
     }
   }
 
   // Load cached conversation data
-  Future<List<String>?> _loadCachedConversationData(String cacheKey) async {
+  Future<Map<String, dynamic>?> _loadCachedConversationData(
+      String cacheKey) async {
     final prefs = await SharedPreferences.getInstance();
     final String? cachedData = prefs.getString('conversation_data_$cacheKey');
-
-    if (cachedData != null) {
-      return List<String>.from(jsonDecode(cachedData));
+    final String? cachedFull = prefs.getString('conversation_full_$cacheKey');
+    if (cachedData != null && cachedFull != null) {
+      return {
+        'enList': List<String>.from(jsonDecode(cachedData)),
+        'fullList': List<Map<String, dynamic>>.from(jsonDecode(cachedFull)),
+      };
     }
     return null;
   }
 
   // Save conversation data to cache
-  Future<void> _cacheConversationData(
-      String cacheKey, List<String> dataToCache) async {
+  Future<void> _cacheConversationData(String cacheKey, List<String> enList,
+      List<Map<String, dynamic>> fullList) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-        'conversation_data_$cacheKey', jsonEncode(dataToCache));
+    await prefs.setString('conversation_data_$cacheKey', jsonEncode(enList));
+    await prefs.setString('conversation_full_$cacheKey', jsonEncode(fullList));
   }
 
   // Fetch conversation data from API
@@ -126,13 +141,19 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final conversation = List<String>.from(data['conversation']);
+        final conversationList =
+            List<Map<String, dynamic>>.from(data['conversation']);
+        final conversationEn = conversationList
+            .map((e) => e['en']?.toString() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
 
-        // Cache the data
-        await _cacheConversationData(cacheKey, conversation);
+        // Cache both en-only and full list
+        await _cacheConversationData(
+            cacheKey, conversationEn, conversationList);
 
         setState(() {
-          _conversationData = conversation;
+          _conversationList = conversationList;
         });
       } else {
         print('Failed to fetch conversation data: ${response.statusCode}');
@@ -140,6 +161,16 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     } catch (e) {
       print('Error fetching conversation data: $e');
     }
+  }
+
+  // 번역문을 conversationList의 'ko'에서 가져오도록 수정
+  Future<String> _getKoTranslationForCurrentSentence() async {
+    if (_conversationList != null &&
+        _currentIndex < _conversationList!.length) {
+      final item = _conversationList![_currentIndex];
+      return item['ko']?.toString() ?? '';
+    }
+    return '';
   }
 
   Future<void> _startRecording() async {
@@ -234,8 +265,8 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   Future<void> _fetchBookmarks() async {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
-    final url = Uri.parse(
-        '$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
+    final url =
+        Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
     try {
       final response = await http.get(
         url,
@@ -278,11 +309,11 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
     final chapterId = widget.chapter;
-    final sentence = _conversationData![_currentIndex];
+    final sentence = _conversationList![_currentIndex]['en'];
     final translate = await _fetchTranslationForBookmark(sentence);
 
-    final url = Uri.parse(
-        '$apiBaseUrl/api/public/site/apiTutorSentenceBookmark');
+    final url =
+        Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmark');
     final body = jsonEncode({
       "chapter_id": chapterId,
       "sentence": sentence,
@@ -320,7 +351,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   Future<void> _deleteBookmark() async {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
-    final sentence = _conversationData![_currentIndex];
+    final sentence = _conversationList![_currentIndex]['en'];
 
     final url = Uri.parse(
         '$apiBaseUrl/api/public/site/apiTutorSentenceBookmark?sentence=${Uri.encodeComponent(sentence)}');
@@ -372,9 +403,9 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
       formData.appendBlob('audio_file', blob, 'recording.webm');
 
       // Add the reference text
-      if (_conversationData != null &&
-          _currentIndex < _conversationData!.length) {
-        formData.append('reference_text', _conversationData![_currentIndex]);
+      if (_conversationList != null &&
+          _currentIndex < _conversationList!.length) {
+        formData.append('reference_text', _conversationList![_currentIndex]['en']);
       } else {
         print('Invalid conversation data or index');
         setState(() {
@@ -451,6 +482,21 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
     }
   }
 
+  void _goToNextSentence() {
+    setState(() {
+      _currentIndex++;
+      _assessmentResult = null;
+      _wordResults = null;
+      _isRecording = false;
+      _audioChunks.clear();
+      _audioPlayer = null;
+      _stream?.getTracks().forEach((track) => track.stop());
+      _stream = null;
+      _recorder = null;
+      _currentTranslation = null; // 번역 숨기기
+    });
+  }
+
   @override
   void dispose() {
     // Stop recording if still active
@@ -463,8 +509,20 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
 
   @override
   Widget build(BuildContext context) {
-    final totalItems = _conversationData?.length ?? 0;
+    final totalItems = _conversationList?.length ?? 0;
     final progress = totalItems > 0 ? (_currentIndex + 1) / totalItems : 0.0;
+
+    if (_isLoadingConversation) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color.fromARGB(179, 59, 197, 221),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -528,7 +586,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
               ],
 
               // Reference text card
-              if (_conversationData != null && _conversationData!.isNotEmpty)
+              if (_conversationList != null && _conversationList!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Card(
@@ -556,14 +614,14 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                               IconButton(
                                 icon: Icon(
                                   _bookmarkedSentences.contains(
-                                          _conversationData![_currentIndex])
+                                           _conversationList![_currentIndex]['en'])
                                       ? Icons.bookmark
                                       : Icons.bookmark_border,
                                   color: Colors.blue,
                                 ),
                                 onPressed: () {
                                   if (_bookmarkedSentences.contains(
-                                      _conversationData![_currentIndex])) {
+                                      _conversationList![_currentIndex]['en'])) {
                                     _deleteBookmark();
                                   } else {
                                     _saveBookmark();
@@ -575,30 +633,73 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _conversationData![_currentIndex],
+                            _conversationList![_currentIndex]['en'],
                             style: const TextStyle(
                               fontSize: 16,
                               color: Colors.blue,
                             ),
                             textAlign: TextAlign.center,
                           ),
-                          // Add speaker button
+                          // 번역 결과 노출 (좌측 정렬)
+                          if (_currentTranslation != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12.0),
+                              child: Text(
+                                _currentTranslation!,
+                                style: const TextStyle(
+                                  color: Colors.amber,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.left,
+                              ),
+                            ),
+                          // Add speaker button + 번역 버튼
                           Align(
                             alignment: Alignment.bottomRight,
-                            child: IconButton(
-                              icon: const Icon(Icons.volume_up,
-                                  color: Colors.blue),
-                              onPressed: () async {
-                                if (_conversationData != null &&
-                                    _currentIndex < _conversationData!.length) {
-                                  final textToSpeak =
-                                      _conversationData![_currentIndex];
-                                  print('Playing text: $textToSpeak');
-                                  await _flutterTts.setLanguage("en-US");
-                                  await _flutterTts.setSpeechRate(0.8);
-                                  await _flutterTts.speak(textToSpeak);
-                                }
-                              },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // 번역 버튼
+                                IconButton(
+                                  icon: const Icon(Icons.translate,
+                                      color: Colors.blue),
+                                  tooltip: '번역 보기',
+                                  onPressed: () async {
+                                    if (_conversationList != null &&
+                                        _currentIndex < _conversationList!.length) {
+                                      // 버튼을 다시 누르면 번역 숨김
+                                      if (_currentTranslation != null) {
+                                        setState(() {
+                                          _currentTranslation = null;
+                                        });
+                                      } else {
+                                        final translation = await _getKoTranslationForCurrentSentence();
+                                        setState(() {
+                                          _currentTranslation = translation.isNotEmpty ? translation : '번역 결과가 없습니다.';
+                                        });
+                                      }
+                                    }
+                                  },
+                                ),
+                                // 음성 버튼
+                                IconButton(
+                                  icon: const Icon(Icons.volume_up,
+                                      color: Colors.blue),
+                                  onPressed: () async {
+                                    if (_conversationList != null &&
+                                        _currentIndex <
+                                            _conversationList!.length) {
+                                      final textToSpeak =
+                                          _conversationList![_currentIndex]['en'];
+                                      print('Playing text: $textToSpeak');
+                                      await _flutterTts.setLanguage("en-US");
+                                      await _flutterTts.setSpeechRate(0.8);
+                                      await _flutterTts.speak(textToSpeak);
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -632,41 +733,68 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
               const SizedBox(height: 16),
 
               // Next button
-              if (!_isRecording && !_isProcessing && _conversationData != null)
-                ElevatedButton(
-                  onPressed: _currentIndex < totalItems - 1
-                      ? () {
-                          setState(() {
-                            _currentIndex++;
-                            _assessmentResult = null; // 평가 결과 초기화
-                            _wordResults = null; // 단어 결과 초기화
-
-                            // 녹음 관련 상태 초기화
-                            _isRecording = false;
-                            _audioChunks.clear();
-                            _audioPlayer = null;
-                            _stream
-                                ?.getTracks()
-                                .forEach((track) => track.stop());
-                            _stream = null;
-                            _recorder = null;
-                          });
-                        }
-                      : null,
-                  child: const Text(
-                    '다음 문장',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromARGB(255, 41, 177, 211),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                ),
-
+              if (//_assessmentResult != null &&
+              !_isRecording && !_isProcessing && _conversationList != null)
+                (_currentIndex < _conversationList!.length - 1)
+                    ? ElevatedButton(
+                        onPressed: () {
+                          _goToNextSentence();
+                        },
+                        child: const Text(
+                          '다음 문장',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              const Color.fromARGB(255, 41, 177, 211),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      )
+                    : ElevatedButton(
+                        onPressed: () async {
+                          // 마지막 문장일 때: 서버로 말한 문장 전송
+                          try {
+                            final prefs = await SharedPreferences.getInstance();
+                            final jwt = prefs.getString('jwt_token') ?? '';
+                            final url = Uri.parse(
+                                '$apiBaseUrl/api/public/site/apiInsertTutorSentenceComp');
+                            final response = await http.post(
+                              url,
+                              headers: {
+                                'Authorization': 'Bearer $jwt',
+                                'Content-Type': 'application/json',
+                              },
+                              body: json.encode({
+                                'course': widget.course,
+                                'lesson': widget.lesson,
+                                'chapter': widget.chapter,
+                                'sentence': _conversationList,
+                                // 필요시 추가 데이터
+                              }),
+                            );
+                            // 성공/실패에 상관없이 이전 페이지로 이동
+                            if (mounted) Navigator.of(context).pop();
+                          } catch (e) {
+                            if (mounted) Navigator.of(context).pop();
+                          }
+                        },
+                        child: const Text(
+                          '학습 완료',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      ),
               const SizedBox(height: 16),
 
               if (_isProcessing)

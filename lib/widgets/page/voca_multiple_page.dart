@@ -259,6 +259,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
+        backgroundColor: Colors.black,
         body: Center(
           child: CircularProgressIndicator(
             strokeWidth: 2,

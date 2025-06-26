@@ -5,8 +5,282 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/config.dart';
 
-class ProfileTab extends StatelessWidget {
+class ProfileTab extends StatefulWidget {
   const ProfileTab({Key? key}) : super(key: key);
+
+  @override
+  State<ProfileTab> createState() => _ProfileTabState();
+}
+
+class _ProfileTabState extends State<ProfileTab> {
+  List<dynamic> _courses = [];
+  bool _isLoadingCourses = true;
+  String? _courseError;
+  int? _totalLessonStudyTimeMinutes;
+  bool _isLoadingStudyTime = true;
+  int? _completedSentenceCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCourses();
+    _fetchTotalLessonStudyTime();
+    _fetchCompletedSentenceCount(); 
+  }
+
+   // '말한 문장' 갯수 가져오기
+  Future<void> _fetchCompletedSentenceCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jwt = prefs.getString('jwt_token') ?? '';
+    final url = Uri.parse('$apiBaseUrl/api/public/site/apiGetTutorSentenceCompCount');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _completedSentenceCount = data['count'] as int?;
+        });
+      }
+    } catch (e) {
+      // 필요시 에러 처리
+    }
+  }
+
+  Future<void> _fetchTotalLessonStudyTime() async {
+    setState(() {
+      _isLoadingStudyTime = true;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final url = Uri.parse('$apiBaseUrl/api/public/site/apiGetTotalLessonStudyTime');
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final totalSeconds = data['totalLessonStudyTime'] ?? 0;
+        setState(() {
+          _totalLessonStudyTimeMinutes = (totalSeconds / 60).floor();
+          _isLoadingStudyTime = false;
+        });
+      } else if (response.statusCode == 401) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+      } else {
+        setState(() {
+          _isLoadingStudyTime = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingStudyTime = false;
+      });
+    }
+  }
+
+  Future<void> _fetchCourses({int size = 3}) async {
+    setState(() {
+      _isLoadingCourses = true;
+      _courseError = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          "page": "1",
+          "size": size.toString(),
+          "sort": "desc",
+          "order": "",
+          "currentClass": "ing"
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _courses = data['list'] ?? [];
+          _isLoadingCourses = false;
+        });
+      } else if (response.statusCode == 401) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+      } else {
+        setState(() {
+          _courseError = '코스 불러오기 실패: ${response.body}';
+          _isLoadingCourses = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _courseError = '네트워크 오류: $e';
+        _isLoadingCourses = false;
+      });
+    }
+  }
+
+  void _showAllCoursesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(16),
+          child: Container(
+            constraints:
+                const BoxConstraints(maxWidth: 500, maxHeight: 600), // 높이 제한 추가
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E2133),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                // 스크롤 가능하게 감싸기
+                child: _buildAllCoursesChapter(),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<List<dynamic>> _fetchCoursesList({int size = 3}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jwt = prefs.getString('jwt_token') ?? '';
+      final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          "page": "1",
+          "size": size.toString(),
+          "sort": "desc",
+          "order": "",
+          "currentClass": "ing"
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['list'] ?? [];
+      } else if (response.statusCode == 401) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+        Navigator.of(context).pushReplacementNamed('/intro');
+        return [];
+      } else {
+        throw Exception('코스 불러오기 실패: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('네트워크 오류: $e');
+    }
+  }
+
+  Widget _buildAllCoursesChapter() {
+    return FutureBuilder<List<dynamic>>(
+      future: _fetchCoursesList(size: 100),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 40),
+            child:
+                Center(child: CircularProgressIndicator(color: Colors.white)),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Center(
+              child: Text(
+                snapshot.error.toString(),
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ),
+          );
+        }
+        final courses = snapshot.data ?? [];
+        return FutureBuilder<int?>(
+          future: SharedPreferences.getInstance()
+              .then((prefs) => prefs.getInt('current_course')),
+          builder: (context, idSnap) {
+            final currentCourseId = idSnap.data;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '모든 코스',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (courses.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Center(
+                      child: Text(
+                        '수강 중인 코스가 없습니다.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  )
+                else
+                  Column(
+                    children: List.generate(courses.length, (idx) {
+                      final item = courses[idx];
+                      final courseId = item['courseId'];
+                      final isInProgress = currentCourseId != null &&
+                          courseId == currentCourseId;
+                      return Column(
+                        children: [
+                          _buildCourseItem(
+                            image: item['thumnail'] != null
+                                ? '$apiBaseUrl${item['thumnail']}'
+                                : '',
+                            title: item['courseName'] ?? '',
+                            instructors: '',
+                            progress: (item['totalRate'] ?? 0) / 100.0,
+                            isInProgress: isInProgress,
+                          ),
+                          if (idx != courses.length - 1)
+                            const Divider(height: 1, color: Color(0xFF2A2E45)),
+                        ],
+                      );
+                    }),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +300,7 @@ class ProfileTab extends StatelessWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: Column( 
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Center(
@@ -49,18 +323,13 @@ class ProfileTab extends StatelessWidget {
                       icon: Icons.chat_bubble_outline,
                       iconColor: Colors.purple.shade300,
                       title: '말한 문장',
-                      value: '215개',
+                      value: '$_completedSentenceCount개',
                     ),
                   ),
                   const SizedBox(width: 16),
                   // 공부한 시간 카드
                   Expanded(
-                    child: _buildStatCard(
-                      icon: Icons.access_time_rounded,
-                      iconColor: Colors.teal.shade300,
-                      title: '공부한 시간',
-                      value: '129분',
-                    ),
+                    child: _buildStudyTimeStatCard(),
                   ),
                 ],
               ),
@@ -144,7 +413,8 @@ class ProfileTab extends StatelessWidget {
                           context: context,
                           isScrollControlled: true,
                           backgroundColor: Colors.transparent,
-                          builder: (context) => const BookmarkedSentencesSheet(),
+                          builder: (context) =>
+                              const BookmarkedSentencesSheet(),
                         );
                       },
                       child: _buildBookmarkItem(
@@ -184,80 +454,101 @@ class ProfileTab extends StatelessWidget {
     );
   }
 
-  Widget _buildCourseChapter() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildCourseChapter({int size = 3}) {
+    return FutureBuilder<int?>(
+      future: SharedPreferences.getInstance()
+          .then((prefs) => prefs.getInt('current_course')),
+      builder: (context, snapshot) {
+        final currentCourseId = snapshot.data;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '수강 시작한 코스',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            TextButton(
-              onPressed: () {},
-              child: const Text(
-                '모든 코스 보기',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontSize: 14,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '수강 시작한 코스',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                if (size == 3)
+                  TextButton(
+                    onPressed: _showAllCoursesDialog,
+                    child: const Text(
+                      '모든 코스 보기',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E2133),
+                borderRadius: BorderRadius.circular(16),
               ),
+              child: _isLoadingCourses
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: Center(
+                          child:
+                              CircularProgressIndicator(color: Colors.white)),
+                    )
+                  : _courseError != null
+                      ? Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Center(
+                            child: Text(
+                              _courseError!,
+                              style: const TextStyle(color: Colors.redAccent),
+                            ),
+                          ),
+                        )
+                      : (_courses.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Center(
+                                child: Text(
+                                  '수강 중인 코스가 없습니다.',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            )
+                          : Column(
+                              children: List.generate(_courses.length, (idx) {
+                                final item = _courses[idx];
+                                final courseId = item['courseId'];
+                                final isInProgress = currentCourseId != null &&
+                                    courseId == currentCourseId;
+                                return Column(
+                                  children: [
+                                    _buildCourseItem(
+                                      image: item['thumnail'] != null
+                                          ? '$apiBaseUrl${item['thumnail']}'
+                                          : '',
+                                      title: item['courseName'] ?? '',
+                                      instructors: '',
+                                      progress:
+                                          (item['totalRate'] ?? 0) / 100.0,
+                                      isInProgress: isInProgress,
+                                    ),
+                                    if (idx != _courses.length - 1)
+                                      const Divider(
+                                          height: 1, color: Color(0xFF2A2E45)),
+                                  ],
+                                );
+                              }),
+                            )),
             ),
           ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E2133),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              _buildCourseItem(
-                image: 'assets/images/audrey.jpg',
-                title: '영어적 사고 기르기',
-                instructors: 'With Audrey & Sarah',
-                progress: 0.0,
-                isInProgress: true,
-              ),
-              const Divider(height: 1, color: Color(0xFF2A2E45)),
-              _buildCourseItem(
-                image: 'assets/images/kate.jpg',
-                title: '스피킹하며 시작 (왕초보 1탄)',
-                instructors: 'With Kate & Christina',
-                progress: 0.0,
-              ),
-              const Divider(height: 1, color: Color(0xFF2A2E45)),
-              _buildCourseItem(
-                image: 'assets/images/jenny.jpg',
-                title: '실전 상황별 스피킹',
-                instructors: 'With Jenny & Audrey',
-                progress: 0.0,
-              ),
-              const Divider(height: 1, color: Color(0xFF2A2E45)),
-              _buildCourseItem(
-                image: 'assets/images/sarah.jpg',
-                title: '스피킹 살아남기 (기초 1탄)',
-                instructors: 'With Sarah & Christina',
-                progress: 0.0,
-              ),
-              const Divider(height: 1, color: Color(0xFF2A2E45)),
-              _buildCourseItem(
-                image: 'assets/images/campus.jpg',
-                title: '대학 캠퍼스 영어',
-                instructors: 'With Audrey & Friends',
-                progress: 0.0,
-              ),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -268,20 +559,38 @@ class ProfileTab extends StatelessWidget {
     required double progress,
     bool isInProgress = false,
   }) {
-    // 프로필 이미지 대체 위젯
-    Widget profileImage = ClipRRect(
-      borderRadius: BorderRadius.circular(40),
-      child: Container(
-        width: 80,
-        height: 80,
-        color: Colors.grey.shade800,
-        child: const Icon(
-          Icons.person,
-          color: Colors.white,
-          size: 40,
+    Widget profileImage;
+    if (image.isNotEmpty) {
+      profileImage = ClipRRect(
+        borderRadius: BorderRadius.circular(40),
+        child: Image.network(
+          image,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 80,
+            height: 80,
+            color: Colors.grey.shade800,
+            child: const Icon(Icons.person, color: Colors.white, size: 40),
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      profileImage = ClipRRect(
+        borderRadius: BorderRadius.circular(40),
+        child: Container(
+          width: 80,
+          height: 80,
+          color: Colors.grey.shade800,
+          child: const Icon(
+            Icons.person,
+            color: Colors.white,
+            size: 40,
+          ),
+        ),
+      );
+    }
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -324,14 +633,15 @@ class ProfileTab extends StatelessWidget {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            instructors,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 14,
+          if (instructors.isNotEmpty)
+            Text(
+              instructors,
+              style: const TextStyle(
+                color: Colors.white54,
+                fontSize: 14,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+          if (instructors.isNotEmpty) const SizedBox(height: 8),
           LinearProgressIndicator(
             value: progress,
             backgroundColor: Colors.grey.shade800,
@@ -371,36 +681,41 @@ class ProfileTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E2133),
+        color: const Color(0xFF23263A),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: iconColor,
-            size: 28,
-          ),
+          Icon(icon, color: iconColor, size: 32),
           const SizedBox(height: 12),
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 30,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // 예시: 공부한 시간 StatCard 추가
+  Widget _buildStudyTimeStatCard() {
+    return _buildStatCard(
+      icon: Icons.timer,
+      iconColor: Colors.teal.shade300,
+      title: '공부한 시간',
+      value: _isLoadingStudyTime
+          ? '...'
+          : '${_totalLessonStudyTimeMinutes ?? 0}분',
     );
   }
 
@@ -466,13 +781,13 @@ class ProfileTab extends StatelessWidget {
   }
 }
 
-
 // 북마크한 문장 리스트를 보여주는 BottomSheet 위젯
 class BookmarkedSentencesSheet extends StatefulWidget {
   const BookmarkedSentencesSheet({Key? key}) : super(key: key);
 
   @override
-  State<BookmarkedSentencesSheet> createState() => _BookmarkedSentencesSheetState();
+  State<BookmarkedSentencesSheet> createState() =>
+      _BookmarkedSentencesSheetState();
 }
 
 class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
@@ -494,7 +809,8 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
-      final url = Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
+      final url =
+          Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
       final response = await http.get(
         url,
         headers: {
@@ -507,6 +823,10 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
           _bookmarks = json.decode(response.body);
           _isLoading = false;
         });
+      } else if (response.statusCode == 401) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
       } else {
         setState(() {
           _error = '불러오기 실패: ${response.body}';
@@ -589,7 +909,9 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
                                         fontSize: 16,
                                       ),
                                     ),
-                                    subtitle: (item['translate'] ?? '').toString().isNotEmpty
+                                    subtitle: (item['translate'] ?? '')
+                                            .toString()
+                                            .isNotEmpty
                                         ? Text(
                                             item['translate'],
                                             style: const TextStyle(
@@ -599,7 +921,10 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
                                           )
                                         : null,
                                     trailing: Text(
-                                      (item['createdAt'] ?? '').toString().split('T').first,
+                                      (item['createdAt'] ?? '')
+                                          .toString()
+                                          .split('T')
+                                          .first,
                                       style: const TextStyle(
                                         color: Colors.white54,
                                         fontSize: 12,
@@ -644,7 +969,8 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
-      final url = Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmarks');
+      final url =
+          Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmarks');
       final response = await http.get(
         url,
         headers: {
@@ -657,6 +983,10 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
           _bookmarks = json.decode(response.body);
           _isLoading = false;
         });
+      } else if (response.statusCode == 401) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
       } else {
         setState(() {
           _error = '불러오기 실패: ${response.body}';
@@ -739,7 +1069,9 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
                                         fontSize: 16,
                                       ),
                                     ),
-                                    subtitle: (item['translate'] ?? '').toString().isNotEmpty
+                                    subtitle: (item['translate'] ?? '')
+                                            .toString()
+                                            .isNotEmpty
                                         ? Text(
                                             item['translate'],
                                             style: const TextStyle(
@@ -749,7 +1081,10 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
                                           )
                                         : null,
                                     trailing: Text(
-                                      (item['createdAt'] ?? '').toString().split('T').first,
+                                      (item['createdAt'] ?? '')
+                                          .toString()
+                                          .split('T')
+                                          .first,
                                       style: const TextStyle(
                                         color: Colors.white54,
                                         fontSize: 12,
