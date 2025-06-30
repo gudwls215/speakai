@@ -110,18 +110,21 @@ class IntroPage extends StatelessWidget {
                     '이미 계정이 있으신가요? 바로 ',
                     style: TextStyle(color: Colors.white, fontSize: 15),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const LoginPage()),
-                      );
-                    },
-                    child: const Text(
-                      '로그인하세요',
-                      style: TextStyle(
-                        color: Colors.blue,
-                        fontSize: 15,
-                        decoration: TextDecoration.underline,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const LoginPage()),
+                        );
+                      },
+                      child: const Text(
+                        '로그인하세요',
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontSize: 15,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
                   ),

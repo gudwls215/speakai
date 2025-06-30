@@ -25,14 +25,15 @@ class _ProfileTabState extends State<ProfileTab> {
     super.initState();
     _fetchCourses();
     _fetchTotalLessonStudyTime();
-    _fetchCompletedSentenceCount(); 
+    _fetchCompletedSentenceCount();
   }
 
-   // '말한 문장' 갯수 가져오기
+  // '말한 문장' 갯수 가져오기
   Future<void> _fetchCompletedSentenceCount() async {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
-    final url = Uri.parse('$apiBaseUrl/api/public/site/apiGetTutorSentenceCompCount');
+    final url =
+        Uri.parse('$apiBaseUrl/api/public/site/apiGetTutorSentenceCompCount');
     try {
       final response = await http.get(
         url,
@@ -59,7 +60,8 @@ class _ProfileTabState extends State<ProfileTab> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
-      final url = Uri.parse('$apiBaseUrl/api/public/site/apiGetTotalLessonStudyTime');
+      final url =
+          Uri.parse('$apiBaseUrl/api/public/site/apiGetTotalLessonStudyTime');
       final response = await http.get(
         url,
         headers: {
@@ -400,45 +402,51 @@ class _ProfileTabState extends State<ProfileTab> {
                 ),
                 child: Column(
                   children: [
-                    _buildBookmarkItem(
-                      icon: Icons.local_fire_department_outlined,
-                      iconBgColor: Colors.grey.shade600,
-                      title: '불꽃 기록부',
-                      subtitle: '1일 1수업으로 불꽃 유지!',
-                    ),
-                    const Divider(height: 1, color: Colors.grey),
-                    GestureDetector(
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) =>
-                              const BookmarkedSentencesSheet(),
-                        );
-                      },
-                      child: _buildBookmarkItem(
-                        icon: Icons.bookmark_outline,
-                        iconBgColor: Colors.blue,
-                        title: '보관한 표현',
-                        subtitle: '두고두고 볼 나만의 표현 집합소!',
+                    // _buildBookmarkItem(
+                    //   icon: Icons.local_fire_department_outlined,
+                    //   iconBgColor: Colors.grey.shade600,
+                    //   title: '불꽃 기록부',
+                    //   subtitle: '1일 1수업으로 불꽃 유지!',
+                    // ),
+                    // const Divider(height: 1, color: Colors.grey),
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) =>
+                                const BookmarkedSentencesSheet(),
+                          );
+                        },
+                        child: _buildBookmarkItem(
+                          icon: Icons.bookmark_outline,
+                          iconBgColor: Colors.blue,
+                          title: '보관한 표현',
+                          subtitle: '두고두고 볼 나만의 표현 집합소!',
+                        ),
                       ),
                     ),
                     const Divider(height: 1, color: Colors.grey),
-                    GestureDetector(
-                      onTap: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
-                          builder: (context) => const BookmarkedWordsSheet(),
-                        );
-                      },
-                      child: _buildBookmarkItem(
-                        icon: Icons.bookmark_outline,
-                        iconBgColor: Colors.amber,
-                        title: '보관한 단어',
-                        subtitle: 'AI 코치와 함께 발음 연습하기!',
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (context) => const BookmarkedWordsSheet(),
+                          );
+                        },
+                        child: _buildBookmarkItem(
+                          icon: Icons.bookmark_outline,
+                          iconBgColor: Colors.amber,
+                          title: '보관한 단어',
+                          subtitle: 'AI 코치와 함께 발음 연습하기!',
+                        ),
                       ),
                     ),
                   ],
@@ -713,9 +721,8 @@ class _ProfileTabState extends State<ProfileTab> {
       icon: Icons.timer,
       iconColor: Colors.teal.shade300,
       title: '공부한 시간',
-      value: _isLoadingStudyTime
-          ? '...'
-          : '${_totalLessonStudyTimeMinutes ?? 0}분',
+      value:
+          _isLoadingStudyTime ? '...' : '${_totalLessonStudyTimeMinutes ?? 0}분',
     );
   }
 

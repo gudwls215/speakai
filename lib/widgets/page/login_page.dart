@@ -40,7 +40,7 @@ class _LoginPageState extends State<LoginPage> {
             await prefs.setString('user', jsonEncode(user));
             // tutorOnboardYn 값으로 온보딩 여부 저장
             final isOnboarded = user['tutorOnboardYn'] == true;
-            final currentChapter= user['tutorCurrentChapterId'] != null ? user['tutorCurrentChapterId'].toString() : '';
+            final currentChapter = user['tutorCurrentChapterId'] != null ? user['tutorCurrentChapterId'].toString() : '';
             await prefs.setString('current_chapter', currentChapter);
             await prefs.setInt('current_course', user['tutorCurrentCourseId'] ?? 0);
             await prefs.setBool('is_onboarded', isOnboarded);
@@ -184,16 +184,19 @@ class _LoginPageState extends State<LoginPage> {
             const Spacer(),
             Padding(
               padding: const EdgeInsets.only(bottom: 24),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text(
-                  '돌아가기',
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontSize: 15,
-                    decoration: TextDecoration.underline,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text(
+                    '돌아가기',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontSize: 15,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),

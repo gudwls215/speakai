@@ -35,7 +35,6 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
       final jwt = prefs.getString('jwt_token') ?? '';
       final dio = Dio();
 
-      // endpoint 하나로 통일
       String endpoint = '$apiBaseUrl/api/public/site/apiGetTutorFreeTalk';
       String type;
       switch (_selectedCategory) {
@@ -475,20 +474,23 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
   final TextEditingController _descriptionController = TextEditingController();
 
   final List<String> _emojiOptions = [
-    '🗣️',
-    '👩‍🎓',
-    '👨‍💻',
+    '🤷',
+    '🚨',
+    '✈️',
+    '❤️',
+    '💵',
+    '🤝',
+    '🏝️',
+    '🏢',
+    '🏪',
     '🧑‍🏫',
-    '🦸',
-    '🦸‍♀️',
-    '🧑‍🎤',
-    '🧑‍🚀',
-    '🧑‍🍳',
-    '🧑‍🎨',
-    '🧑‍🔬',
-    '🧑‍⚕️'
+    '🏬',
+    '🚋',
+    '👰',
+    '👨‍⚕️',
+    '🧑‍✈️'
   ];
-  String _selectedEmoji = '🗣️';
+  String _selectedEmoji = '🤷';
 
   @override
   void dispose() {
@@ -610,7 +612,7 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
             ),
           ),
           const Divider(color: Color(0xFF333333)),
-          // ▼▼▼ 이모지 선택 UI 추가 ▼▼▼
+          // 이모지 선택 UI 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
             child: SizedBox(

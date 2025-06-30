@@ -118,11 +118,28 @@ class _VocaMultipleState extends State<VocaMultiple> {
       },
     );
   }
+  
+  Future<String> _fetchTranslationForBookmark(String sentence) async {
+    try {
+      final Uri uri = Uri.parse("$aiBaseUrl/translate")
+          .replace(queryParameters: {'text': sentence});
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['translation'] ?? "";
+      }
+    } catch (e) {
+      // 에러 무시 또는 필요시 처리
+    }
+    return "";
+  }
 
   // 2. 단어 북마크 저장 함수 추가
-  Future<void> _saveWordBookmark(String word, String translate) async {
+  Future<void> _saveWordBookmark(String word) async {
     final prefs = await SharedPreferences.getInstance();
     final jwt = prefs.getString('jwt_token') ?? '';
+    final translate = await _fetchTranslationForBookmark(word);
     final url =
         Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmark');
     final body = jsonEncode({
@@ -473,9 +490,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
                               ? null
                               : () {
                                   final word = currentQuestion['correctAnswer'];
-                                  final translate =
-                                      currentQuestion['translatedAnswer'] ?? '';
-                                  _saveWordBookmark(word, translate);
+                                  _saveWordBookmark(word);
                                 },
                           tooltip: '단어 북마크',
                         ),
