@@ -294,7 +294,7 @@ class _ProfileTabState extends State<ProfileTab> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            CircleAvatar(backgroundImage: AssetImage('avatar.png')),
+            CircleAvatar(backgroundImage: NetworkImage('https://tutor.glotos.com/assets/avatar.png')),
             Icon(Icons.settings, color: Colors.white),
           ],
         ),

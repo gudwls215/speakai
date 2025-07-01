@@ -19,7 +19,7 @@ class IntroPage extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 80,
-                    backgroundImage: AssetImage('avatar.png'), // 이미지 경로 교체
+                    backgroundImage: NetworkImage('https://tutor.glotos.com/assets/avatar.png'), // 이미지 경로 교체
                   ),
                   Positioned(
                     right: 0,

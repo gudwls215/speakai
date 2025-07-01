@@ -124,7 +124,10 @@ class _HomePageState extends State<HomePage> {
               lessonProvider.currentChapter ?? '',
               lessonProvider.currentCourse ?? ''),
           ChapterTitle('점프인 레슨'),
-          GestureDetector(
+          CategoryCard(
+            'Word Smart', 
+            '꼭 알아야 하는 실전 위주 영단어!', 
+            Icons.school,
             onTap: () async {
               // ▼▼▼ current_chapter와 일치하는 챕터 정보로 VocaMultiple 이동 ▼▼▼
               final result = await getCurrentLessonCourseChapter();
@@ -149,10 +152,11 @@ class _HomePageState extends State<HomePage> {
                 ),
               );
             },
-            child: const CategoryCard(
-                'Word Smart', '꼭 알아야 하는 실전 위주 영단어!', Icons.school),
           ),
-          GestureDetector(
+          CategoryCard(
+            'pronunciation assessment', 
+            '수업한 내용 복습과 발음 평가!', 
+            Icons.school,
             onTap: () async {
               // ▼▼▼ current_chapter와 일치하는 챕터 정보로 PronunciationAssessment 이동 ▼▼▼
               final result = await getCurrentLessonCourseChapter();
@@ -177,8 +181,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               );
             },
-            child: const CategoryCard(
-                'pronunciation assessment', '수업한 내용 복습과 발음 평가!', Icons.school),
           ),
           ChapterTitle('추천 코스'),
           // CategoryCard(

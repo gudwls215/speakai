@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/config.dart';
 
-class RecommendedCourse extends StatelessWidget {
+class RecommendedCourse extends StatefulWidget {
   final String title;
   final String subtitle;
   final dynamic course; // course 전체 객체 전달
@@ -15,47 +15,141 @@ class RecommendedCourse extends StatelessWidget {
       : super(key: key);
 
   @override
+  State<RecommendedCourse> createState() => _RecommendedCourseState();
+}
+
+class _RecommendedCourseState extends State<RecommendedCourse> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16.0),
-      onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => CourseDetailSheet(courseId: course),
-        );
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        setState(() {
+          _isHovered = true;
+        });
       },
-      child: Card(
-        color: Colors.grey[900],
-        shape: RoundedRectangleBorder(
-          side: const BorderSide(color: Colors.grey),
-          borderRadius: BorderRadius.circular(16.0),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: Colors.blue,
-                child: Icon(icon, color: Colors.white),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 18)),
-                    Text(subtitle,
-                        style:
-                            const TextStyle(color: Colors.grey, fontSize: 14)),
-                  ],
+      onExit: (_) {
+        setState(() {
+          _isHovered = false;
+        });
+      },
+      child: GestureDetector(
+        onTap: () {
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => CourseDetailSheet(courseId: widget.course),
+          );
+        },
+        onTapDown: (_) {
+          _animationController.forward();
+        },
+        onTapUp: (_) {
+          _animationController.reverse();
+        },
+        onTapCancel: () {
+          _animationController.reverse();
+        },
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                child: Card(
+                  color: _isHovered ? Colors.grey[800] : Colors.grey[900],
+                  elevation: _isHovered ? 8 : 4,
+                  shape: RoundedRectangleBorder(
+                    side: BorderSide(
+                      color: _isHovered ? Colors.blueAccent : Colors.grey,
+                      width: _isHovered ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(16.0),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16.0),
+                      boxShadow: _isHovered
+                          ? [
+                              BoxShadow(
+                                color: Colors.blueAccent.withOpacity(0.3),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              )
+                            ]
+                          : null,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            child: CircleAvatar(
+                              backgroundColor: _isHovered ? Colors.blueAccent : Colors.blue,
+                              child: Icon(widget.icon, color: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.title,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: _isHovered ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                ),
+                                Text(
+                                  widget.subtitle,
+                                  style: TextStyle(
+                                    color: _isHovered ? Colors.grey[300] : Colors.grey,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

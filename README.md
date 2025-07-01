@@ -1,16 +1,66 @@
-# speakai
+# SpeakAI
 
-A new Flutter project.
+**SpeakAI**는 커뮤니티 기반 영어 프리토킹 시나리오 공유 및 AI 대화 기능을 제공하는 Flutter 앱입니다.
 
-## Getting Started
+## 주요 기능
 
-This project is a starting point for a Flutter application.
+- **프리토킹 시나리오 목록**  
+  - 트렌딩, 신규, 탑 차트 등 다양한 카테고리별 시나리오 조회
+  - 각 시나리오별 상세 정보 및 대화 시작
 
-A few resources to get you started if this is your first Flutter project:
+- **AI와의 대화**  
+  - 선택한 시나리오에 맞춰 AI와 실시간 채팅
+  - 음성 인식 및 TTS(텍스트 음성 변환) 지원
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- **시나리오 생성 및 수정**  
+  - 사용자가 직접 시나리오를 작성, 수정, 저장 가능
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **관심 등록(즐겨찾기)**  
+  - 시나리오를 관심 등록/해제하여 즐겨찾기 목록 관리
+
+- **관심 등록 목록**  
+  - 관심 등록한 시나리오만 모아보기
+
+## 주요 기술 스택
+
+- **Flutter** (Dart)
+- **Dio**: REST API 통신
+- **SharedPreferences**: 로컬 저장소
+- **Provider**: 상태 관리
+- **PostgreSQL**: 백엔드 DB (관심 등록 등)
+- **Speech to Text / TTS**: 음성 인식 및 합성
+
+## 폴더 구조
+
+```
+lib/
+ ├── tabs/
+ │    └── free_talk_tab.dart      # 메인 프리토킹 탭 및 시나리오 목록
+ ├── widgets/
+ │    └── page/
+ │         └── free_talk_page.dart # AI와의 대화 화면
+ ├── config.dart                  # 환경설정 및 API base URL 등
+```
+
+## DB 설계 예시
+
+관심 등록 테이블:
+```sql
+CREATE TABLE development.tutor_user_favorite_talk (
+    id SERIAL PRIMARY KEY,
+    member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    talk_id INTEGER NOT NULL REFERENCES tutor_free_talk(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE (member_id, talk_id)
+);
+```
+
+## 실행 방법
+
+1. Flutter 환경을 준비합니다.
+2. `config.dart`에 API 서버 주소 등 환경설정을 맞춥니다.
+3. `flutter pub get`으로 의존성 설치 후 실행합니다.
+
+## 기타
+
+- 코드 및 기능 개선 제안은 언제든 환영합니다!

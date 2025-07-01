@@ -42,6 +42,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
         automaticallyImplyLeading: false,
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             GestureDetector(
               onTap: () async {
@@ -65,40 +66,72 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                     ],
                   ),
                   child: CircleAvatar(
-                    backgroundImage: AssetImage('avatar.png'),
+                    backgroundImage: NetworkImage('https://tutor.glotos.com/assets/avatar.png'),
                     radius: 22,
                   ),
                 ),
               ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 150.0),
-                child: TabBar(
-                  controller: _tabController,
-                  indicatorColor: Colors.blue, // Keep the blue indicator
-                  indicatorWeight: 3.0, // Adjust the thickness of the indicator
-                  indicatorSize: TabBarIndicatorSize
-                      .label, // Make the indicator fit the label
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white,
-                  labelStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+              child: Center(
+                child: Container(
+                  width: 200, // TabBar 전체 가로 넓이 제한
+                  height: 36, // TabBar 전체 높이 제한
+                  decoration: BoxDecoration(
+                    color: Color(0xFF374151),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.grey[600]!, width: 1),
                   ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  child: TabBar(
+                    controller: _tabController,
+                    isScrollable: false,
+                    indicator: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicatorPadding: EdgeInsets.all(3),
+                    dividerColor: Colors.transparent, // 가로선 제거
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.grey[300],
+                    labelStyle: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelStyle: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    tabs: [
+                      Tab(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.home, size: 14),
+                              SizedBox(width: 3),
+                              Text('홈'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Tab(
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.book, size: 14),
+                              SizedBox(width: 3),
+                              Text('코스'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    overlayColor: MaterialStateProperty.all(Colors.transparent),
                   ),
-                  tabs: const [
-                    Tab(text: '홈'),
-                    Tab(text: '코스'),
-                  ],
-                  overlayColor: MaterialStateProperty.all(
-                      Colors.transparent), // Remove the white underline
-                  labelPadding: EdgeInsets.symmetric(
-                      horizontal:
-                          4.0), // Reduce horizontal padding between tabs
                 ),
               ),
             ),
@@ -308,6 +341,57 @@ class _LessonListSheetState extends State<LessonListSheet> {
                           setTutorCurrentCourse(courseId);
                         }
                       },
+                      leading: Container(
+                        width: 80,
+                        height: 80,
+                        margin: EdgeInsets.only(right: 12), 
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[600]!, width: 1),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: lesson['thumbnail'] != null && lesson['thumbnail'].toString().isNotEmpty
+                              ? Image.network(
+                                  '$apiBaseUrl${lesson['thumbnail']}',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: Colors.grey[700],
+                                      child: Icon(
+                                        Icons.image_not_supported,
+                                        color: Colors.grey[400],
+                                        size: 28,
+                                      ),
+                                    );
+                                  },
+                                  loadingBuilder: (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: Colors.grey[700],
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          value: loadingProgress.expectedTotalBytes != null
+                                              ? loadingProgress.cumulativeBytesLoaded /
+                                                  loadingProgress.expectedTotalBytes!
+                                              : null,
+                                          strokeWidth: 2,
+                                          color: Colors.blue,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                )
+                              : Container(
+                                  color: Colors.grey[700],
+                                  child: Icon(
+                                    Icons.school,
+                                    color: Colors.grey[400],
+                                    size: 28,
+                                  ),
+                                ),
+                        ),
+                      ),
                       title: Text(
                         lesson['courseName'] ?? '',
                         style: TextStyle(

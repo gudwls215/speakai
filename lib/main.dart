@@ -13,7 +13,11 @@ import 'tabs/profile_tab.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:flutter/rendering.dart';
+
 void main() {
+  // 디버그 모드에서 위젯 경계선 표시
+  //debugPaintSizeEnabled = true;
   runApp(
     MultiProvider(
       providers: [

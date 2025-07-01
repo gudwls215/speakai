@@ -103,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
             Center(
               child: CircleAvatar(
                 radius: 64,
-                backgroundImage: AssetImage('avatar.png'),
+                backgroundImage: NetworkImage('https://tutor.glotos.com/assets/avatar.png'),
               ),
             ),
             const SizedBox(height: 32),
