@@ -6,6 +6,343 @@ import 'package:dio/dio.dart';
 import 'package:speakai/config.dart';
 import 'dart:async';
 
+// 커스텀 비디오 컨트롤
+class CustomVideoControls extends StatefulWidget {
+  final String title;
+  final VoidCallback onBack;
+
+  const CustomVideoControls({
+    Key? key,
+    required this.title,
+    required this.onBack,
+  }) : super(key: key);
+
+  @override
+  State<CustomVideoControls> createState() => _CustomVideoControlsState();
+}
+
+class _CustomVideoControlsState extends State<CustomVideoControls>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  VideoPlayerController? _controller;
+  ChewieController? _chewieController;
+  bool _isVisible = true;
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final chewieController = ChewieController.of(context);
+    if (chewieController != _chewieController) {
+      _chewieController = chewieController;
+      _controller = _chewieController!.videoPlayerController;
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _toggleControls() {
+    if (_isVisible) {
+      _animationController.reverse();
+      setState(() {
+        _isVisible = false;
+      });
+    } else {
+      _animationController.forward();
+      setState(() {
+        _isVisible = true;
+      });
+      _startHideTimer();
+    }
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _isVisible) {
+        _animationController.reverse();
+        setState(() {
+          _isVisible = false;
+        });
+      }
+    });
+  }
+
+  void _playPause() {
+    if (_controller!.value.isPlaying) {
+      _controller!.pause();
+    } else {
+      _controller!.play();
+      _startHideTimer();
+    }
+  }
+
+  void _seekBackward() {
+    final currentPosition = _controller!.value.position;
+    final newPosition = currentPosition - const Duration(seconds: 5);
+    _controller!.seekTo(newPosition < Duration.zero ? Duration.zero : newPosition);
+    _startHideTimer();
+  }
+
+  void _seekForward() {
+    final currentPosition = _controller!.value.position;
+    final duration = _controller!.value.duration;
+    final newPosition = currentPosition + const Duration(seconds: 5);
+    _controller!.seekTo(newPosition > duration ? duration : newPosition);
+    _startHideTimer();
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    
+    if (duration.inHours > 0) {
+      return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+    } else {
+      return "$twoDigitMinutes:$twoDigitSeconds";
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_controller == null) {
+      return const SizedBox.shrink();
+    }
+
+    return GestureDetector(
+      onTap: _toggleControls,
+      child: Container(
+        color: Colors.transparent,
+        child: AnimatedBuilder(
+          animation: _controller!,
+          builder: (context, child) {
+            final position = _controller!.value.position;
+            final duration = _controller!.value.duration;
+            final isPlaying = _controller!.value.isPlaying;
+
+            return Stack(
+              children: [
+                // 상단 컨트롤 (타이틀, 뒤로가기)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedBuilder(
+                    animation: _animationController,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, -50 * (1 - _animationController.value)),
+                        child: Opacity(
+                          opacity: _animationController.value,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.7),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                            child: SafeArea(
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    onPressed: widget.onBack,
+                                    icon: const Icon(
+                                      Icons.arrow_back,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      widget.title,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                
+                // 중앙 재생/일시정지 및 이동 버튼들
+                Center(
+                  child: AnimatedBuilder(
+                    animation: _animationController,
+                    builder: (context, child) {
+                      return Opacity(
+                        opacity: _animationController.value,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // 뒤로 5초
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                onPressed: _seekBackward,
+                                iconSize: 48,
+                                icon: const Icon(
+                                  Icons.replay_5,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 32),
+                            // 재생/일시정지
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                onPressed: _playPause,
+                                iconSize: 64,
+                                icon: Icon(
+                                  isPlaying ? Icons.pause : Icons.play_arrow,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 32),
+                            // 앞으로 5초
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                onPressed: _seekForward,
+                                iconSize: 48,
+                                icon: const Icon(
+                                  Icons.forward_5,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // 하단 컨트롤 (진행바, 시간)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: AnimatedBuilder(
+                    animation: _animationController,
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, 50 * (1 - _animationController.value)),
+                        child: Opacity(
+                          opacity: _animationController.value,
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.7),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                            child: SafeArea(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // 진행바
+                                  SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      activeTrackColor: Colors.blue,
+                                      inactiveTrackColor: Colors.white.withOpacity(0.3),
+                                      thumbColor: Colors.blue,
+                                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                                      trackHeight: 3,
+                                    ),
+                                    child: Slider(
+                                      value: position.inMilliseconds.toDouble(),
+                                      max: duration.inMilliseconds.toDouble(),
+                                      onChanged: (value) {
+                                        _controller!.seekTo(Duration(milliseconds: value.toInt()));
+                                      },
+                                    ),
+                                  ),
+                                  // 시간 표시
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        _formatDuration(position),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatDuration(duration),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class VideoStreamingService {
   static const String baseUrl = '$apiBaseUrl/api/public/site';
   static const String courseApiUrl = '$apiBaseUrl/api/public/course';
@@ -113,7 +450,6 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
   Map<String, dynamic>? _videoInfo;
   Timer? _progressTimer;
   double _lastSavedTime = 0;
-  bool _hasResumed = false;
   
   // 이어서 보기 관련
   double _resumePosition = 0;
@@ -193,7 +529,10 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
         allowMuting: true,
         showControlsOnInitialize: true,
         controlsSafeAreaMinimum: const EdgeInsets.all(12),
-        customControls: const MaterialControls(),
+        customControls: CustomVideoControls(
+          title: widget.title ?? '동영상',
+          onBack: () => Navigator.pop(context),
+        ),
         hideControlsTimer: const Duration(seconds: 3),
         progressIndicatorDelay: const Duration(milliseconds: 200),
         placeholder: Container(
@@ -345,7 +684,6 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _hasResumed = true;
               },
               child: const Text('처음부터', style: TextStyle(color: Colors.grey)),
             ),
@@ -366,7 +704,6 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
   void _resumeFromPosition() {
     if (_videoController != null && _resumePosition > 0) {
       _videoController!.seekTo(Duration(seconds: _resumePosition.toInt()));
-      _hasResumed = true;
     }
   }
 
@@ -410,26 +747,6 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        automaticallyImplyLeading: false,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            Text(
-              widget.title ?? '동영상',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-              ),
-            ),
-          ],
-        ),
-      ),
       backgroundColor: Colors.black,
       body: _buildBody(),
     );

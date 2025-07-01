@@ -148,17 +148,50 @@ class _ProfileTabState extends State<ProfileTab> {
           insetPadding: const EdgeInsets.all(16),
           child: Container(
             constraints:
-                const BoxConstraints(maxWidth: 500, maxHeight: 600), // 높이 제한 추가
+                const BoxConstraints(maxWidth: 500, maxHeight: 700), // 높이 증가
             decoration: BoxDecoration(
               color: const Color(0xFF1E2133),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SingleChildScrollView(
-                // 스크롤 가능하게 감싸기
-                child: _buildAllCoursesChapter(),
-              ),
+            child: Column(
+              children: [
+                // 제목 바
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '모든 코스 보기',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 구분선
+                Container(
+                  height: 1,
+                  color: Colors.grey.shade700,
+                ),
+                // 코스 목록
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _buildAllCoursesChapter(),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -166,65 +199,163 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  Future<List<dynamic>> _fetchCoursesList({int size = 3}) async {
+  Future<List<dynamic>> _fetchAllCourses() async {
+    List<dynamic> allCourses = [];
+    int page = 1;
+    int pageSize = 50; // 한 번에 가져올 개수
+    bool hasMore = true;
+    
     try {
       final prefs = await SharedPreferences.getInstance();
       final jwt = prefs.getString('jwt_token') ?? '';
-      final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
-      final response = await http.post(
-        url,
-        headers: {
-          'Authorization': 'Bearer $jwt',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          "page": "1",
-          "size": size.toString(),
+      
+      while (hasMore) {
+        final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
+        
+        final requestBody = {
+          "page": page.toString(),
+          "size": pageSize.toString(),
           "sort": "desc",
           "order": "",
           "currentClass": "ing"
-        }),
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data['list'] ?? [];
-      } else if (response.statusCode == 401) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
+        };
+        
+        print('페이지 $page 요청 중... (크기: $pageSize)');
+        
+        final response = await http.post(
+          url,
+          headers: {
+            'Authorization': 'Bearer $jwt',
+            'Content-Type': 'application/json',
+          },
+          body: json.encode(requestBody),
+        );
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final currentPageCourses = data['list'] ?? [];
+          
+          print('페이지 $page에서 ${currentPageCourses.length}개 코스 받음');
+          
+          if (currentPageCourses.isEmpty) {
+            hasMore = false;
+          } else {
+            allCourses.addAll(currentPageCourses);
+            
+            // 받은 개수가 요청한 개수보다 적으면 마지막 페이지
+            if (currentPageCourses.length < pageSize) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+          }
+          
+          // 안전장치: 너무 많은 페이지를 요청하지 않도록
+          if (page > 20) {
+            print('페이지 수 제한에 도달했습니다.');
+            hasMore = false;
+          }
+        } else if (response.statusCode == 401) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+          Navigator.of(context).pushReplacementNamed('/intro');
+          return [];
+        } else {
+          print('API 오류 응답: ${response.body}');
+          throw Exception('코스 불러오기 실패: ${response.body}');
         }
-        Navigator.of(context).pushReplacementNamed('/intro');
-        return [];
-      } else {
-        throw Exception('코스 불러오기 실패: ${response.body}');
       }
+      
+      print('총 ${allCourses.length}개의 코스를 가져왔습니다.');
+      return allCourses;
+      
     } catch (e) {
+      print('전체 코스 가져오기 오류: $e');
       throw Exception('네트워크 오류: $e');
     }
   }
 
   Widget _buildAllCoursesChapter() {
     return FutureBuilder<List<dynamic>>(
-      future: _fetchCoursesList(size: 100),
+      future: _fetchAllCourses(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
-            child:
-                Center(child: CircularProgressIndicator(color: Colors.white)),
+            child: Column(
+              children: [
+                CircularProgressIndicator(color: Colors.white),
+                SizedBox(height: 16),
+                Text(
+                  '모든 코스를 불러오는 중...\n잠시만 기다려 주세요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           );
         }
         if (snapshot.hasError) {
           return Padding(
             padding: const EdgeInsets.all(24.0),
             child: Center(
-              child: Text(
-                snapshot.error.toString(),
-                style: const TextStyle(color: Colors.redAccent),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.redAccent,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '코스를 불러오는 중 오류가 발생했습니다.',
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    snapshot.error.toString(),
+                    style: const TextStyle(color: Colors.redAccent),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
             ),
           );
         }
         final courses = snapshot.data ?? [];
+        
+        if (courses.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.school_outlined,
+                    color: Colors.white54,
+                    size: 48,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '아직 등록된 코스가 없습니다.',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return FutureBuilder<int?>(
           future: SharedPreferences.getInstance()
               .then((prefs) => prefs.getInt('current_course')),
@@ -233,49 +364,74 @@ class _ProfileTabState extends State<ProfileTab> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '모든 코스',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (courses.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: Center(
-                      child: Text(
-                        '수강 중인 코스가 없습니다.',
-                        style: TextStyle(color: Colors.white70),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '전체 코스 목록',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  )
-                else
-                  Column(
-                    children: List.generate(courses.length, (idx) {
-                      final item = courses[idx];
-                      final courseId = item['courseId'];
-                      final isInProgress = currentCourseId != null &&
-                          courseId == currentCourseId;
-                      return Column(
-                        children: [
-                          _buildCourseItem(
-                            image: item['thumnail'] != null
-                                ? '$apiBaseUrl${item['thumnail']}'
-                                : '',
-                            title: item['courseName'] ?? '',
-                            instructors: '',
-                            progress: (item['totalRate'] ?? 0) / 100.0,
-                            isInProgress: isInProgress,
-                          ),
-                          if (idx != courses.length - 1)
-                            const Divider(height: 1, color: Color(0xFF2A2E45)),
-                        ],
-                      );
-                    }),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade600,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '총 ${courses.length}개',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: courses.isEmpty
+                          ? [
+                              const Padding(
+                                padding: EdgeInsets.all(24.0),
+                                child: Center(
+                                  child: Text(
+                                    '수강 중인 코스가 없습니다.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                ),
+                              )
+                            ]
+                          : List.generate(courses.length, (idx) {
+                              final item = courses[idx];
+                              final courseId = item['courseId'];
+                              final isInProgress = currentCourseId != null &&
+                                  courseId == currentCourseId;
+                              return Column(
+                                children: [
+                                  _buildCourseItem(
+                                    image: item['thumnail'] != null
+                                        ? '$apiBaseUrl${item['thumnail']}'
+                                        : '',
+                                    title: item['courseName'] ?? '',
+                                    instructors: '',
+                                    progress: (item['totalRate'] ?? 0) / 100.0,
+                                    isInProgress: isInProgress,
+                                  ),
+                                  if (idx != courses.length - 1)
+                                    const Divider(height: 1, color: Color(0xFF2A2E45)),
+                                ],
+                              );
+                            }),
+                    ),
                   ),
+                ),
               ],
             );
           },
@@ -571,16 +727,52 @@ class _ProfileTabState extends State<ProfileTab> {
     if (image.isNotEmpty) {
       profileImage = ClipRRect(
         borderRadius: BorderRadius.circular(40),
-        child: Image.network(
-          image,
+        child: Container(
           width: 80,
           height: 80,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade800,
+            borderRadius: BorderRadius.circular(40),
+          ),
+          child: Image.network(
+            image,
             width: 80,
             height: 80,
-            color: Colors.grey.shade800,
-            child: const Icon(Icons.person, color: Colors.white, size: 40),
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                width: 80,
+                height: 80,
+                color: Colors.grey.shade800,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                    strokeWidth: 2,
+                    color: Colors.blue,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              print('이미지 로딩 실패: $image, 오류: $error');
+              return Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade800,
+                  borderRadius: BorderRadius.circular(40),
+                ),
+                child: const Icon(
+                  Icons.school,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              );
+            },
           ),
         ),
       );
@@ -590,9 +782,12 @@ class _ProfileTabState extends State<ProfileTab> {
         child: Container(
           width: 80,
           height: 80,
-          color: Colors.grey.shade800,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade800,
+            borderRadius: BorderRadius.circular(40),
+          ),
           child: const Icon(
-            Icons.person,
+            Icons.school,
             color: Colors.white,
             size: 40,
           ),
