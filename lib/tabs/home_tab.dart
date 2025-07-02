@@ -8,8 +8,8 @@ import 'package:speakai/providers/lesson_provider.dart';
 import 'package:speakai/widgets/page/home_page.dart';
 import 'package:speakai/widgets/page/course_page.dart';
 import 'package:speakai/widgets/chat_bot.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'package:speakai/config.dart';
-import 'package:speakai/widgets/page/login_page.dart';
 
 class HomeTab extends StatefulWidget {
   const HomeTab({Key? key}) : super(key: key);
@@ -31,6 +31,105 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Color(0xFF1F2937),
+          title: const Text(
+            '로그아웃',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            '정말 로그아웃하시겠습니까?\n저장된 로그인 정보가 삭제됩니다.',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                '취소',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // 다이얼로그 닫기
+                await _performLogout();
+              },
+              child: const Text(
+                '로그아웃',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performLogout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final refreshToken = prefs.getString('refresh_token');
+      
+      // 서버에 로그아웃 요청 (refresh token 무효화)
+      if (refreshToken != null) {
+        try {
+          final response = await http.post(
+            Uri.parse('$apiBaseUrl/api/public/auth/logout'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'refreshToken': refreshToken}),
+          );
+          
+          if (response.statusCode == 200) {
+            print('Logout successful on server');
+          } else {
+            print('Logout failed on server: ${response.statusCode}');
+          }
+        } catch (e) {
+          print('Logout request failed: $e');
+          // 네트워크 오류여도 로컬 데이터는 삭제
+        }
+      }
+      
+      // 모든 로그인 관련 데이터 삭제
+      await prefs.remove('access_token');
+      await prefs.remove('refresh_token');
+      await prefs.remove('user');
+      await prefs.remove('is_onboarded');
+      await prefs.remove('current_chapter');
+      await prefs.remove('current_course');
+      await prefs.remove('token_expiry');
+      await prefs.remove('last_login');
+      
+      if (mounted) {
+        // 인트로 페이지로 이동하고 모든 이전 페이지 제거
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/intro',
+          (route) => false,
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('로그아웃되었습니다.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('로그아웃 중 오류가 발생했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -136,19 +235,7 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
               ),
             ),
             GestureDetector(
-              onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.clear(); // 모든 저장 정보 초기화
-                if (mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => LoginPage()),
-                    (route) => false,
-                  );
-                }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('저장된 정보가 초기화되었습니다.')),
-                );
-              },
+              onTap: () => _showLogoutDialog(),
               child: Icon(Icons.logout, color: Colors.white),
             ),
           ],
@@ -188,8 +275,15 @@ class _LessonListSheetState extends State<LessonListSheet> {
       error = null;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        // 토큰이 없거나 갱신 실패 시 로그인 페이지로 리다이렉트
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/intro', (route) => false);
+        }
+        return;
+      }
+      
       final response = await http.get(
         Uri.parse('$apiBaseUrl/api/public/site/apiGetCourseList'),
         headers: {
@@ -219,7 +313,14 @@ class _LessonListSheetState extends State<LessonListSheet> {
 
   Future<void> setTutorCurrentCourse(String courseId) async {
     final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final jwt = await TokenManager.getValidAccessToken();
+    if (jwt == null) {
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/intro', (route) => false);
+      }
+      return;
+    }
+    
     try {
       final response = await http.post(
         Uri.parse(

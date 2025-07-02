@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:speakai/services/speech_to_text_handler.dart';
@@ -8,8 +9,6 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:speakai/providers/chat_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:speakai/widgets/page/pronunciation_page.dart';
-import 'dart:convert';
-
 import 'package:speakai/widgets/page/voca_multiple_page.dart';
 import 'package:speakai/config.dart';
 
@@ -28,6 +27,12 @@ class _ChatBotInputState extends State<ChatBotInput> {
   bool _isLoading = false;
   bool _isInLevelTest = false; // 레벨 테스트 모드 여부
   Completer<String>? _levelTestCompleter; // 레벨 테스트에서 사용할 Completer
+  
+  // STT 개선을 위한 새로운 상태 변수들
+  bool _autoSendEnabled = true; // 자동 전송 옵션
+  bool _continuousListening = false; // 연속 음성 인식 모드
+  String _lastRecognizedText = ""; // 마지막으로 인식된 텍스트 저장
+  Timer? _autoSendTimer; // 자동 전송을 위한 타이머
 
   Future<void> fetchIntent({
     required String userId,
@@ -197,19 +202,35 @@ class _ChatBotInputState extends State<ChatBotInput> {
   }
 
   void _initSpeech() async {
-    await _speechHandler.initialize(
-      onStatus: (status) {
-        print("onStatus: $status");
-        setState(() {});
-      },
-      onError: (dynamic error) {
-        print("Error: ${error.toString()}");
-        setState(() {});
-      },
-    );
-
-    if (!_speechHandler.isListening.value) {
-      _showMicPermissionDialog();
+    try {
+      await _speechHandler.initialize(
+        onStatus: (status) {
+          print("onStatus: $status");
+          setState(() {});
+        },
+        onError: (dynamic error) {
+          print("Error: ${error.toString()}");
+          // 권한 관련 에러인 경우에만 다이얼로그 표시
+          if (error.toString().contains('permission') || 
+              error.toString().contains('denied') ||
+              error.toString().contains('not-allowed')) {
+            _showMicPermissionDialog();
+          }
+          setState(() {});
+        },
+      );
+      
+      // 초기화 성공 시 마이크 권한이 있다고 가정
+      print("Speech initialization successful");
+      
+    } catch (e) {
+      print("Speech initialization failed: $e");
+      // 초기화 실패 시에만 권한 다이얼로그 표시
+      if (e.toString().contains('permission') || 
+          e.toString().contains('denied') ||
+          e.toString().contains('not-allowed')) {
+        _showMicPermissionDialog();
+      }
     }
   }
 
@@ -217,13 +238,66 @@ class _ChatBotInputState extends State<ChatBotInput> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('마이크 권한 필요'),
-        content: Text('음성 인식을 사용하려면 브라우저에서 마이크 권한을 허용해주세요. '
-            '주소창 옆 🔒 아이콘을 클릭해 마이크 권한을 허용할 수 있어요.'),
+        backgroundColor: Color(0xFF1E2133),
+        title: Row(
+          children: [
+            Icon(Icons.mic, color: Colors.blue),
+            SizedBox(width: 8),
+            Text(
+              '마이크 권한 필요',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '음성 인식을 사용하려면 브라우저에서 마이크 권한을 허용해주세요.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.blue, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '주소창 옆 🔒 아이콘을 클릭하여 마이크 권한을 허용하세요.',
+                      style: TextStyle(color: Colors.blue, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // 권한 재시도
+              _initSpeech();
+            },
+            child: Text(
+              '다시 시도',
+              style: TextStyle(color: Colors.blue),
+            ),
+          ),
+          TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('확인'),
+            child: Text(
+              '확인',
+              style: TextStyle(color: Colors.grey),
+            ),
           ),
         ],
       ),
@@ -302,21 +376,68 @@ class _ChatBotInputState extends State<ChatBotInput> {
       return;
     }
 
-    _speechHandler.startListening((result) {
-      setState(() {
-        _recognizedText = result.recognizedWords;
-        _textController.text = _recognizedText;
-        _textController.selection = TextSelection.fromPosition(
-          TextPosition(offset: _textController.text.length),
-        );
+    // 이전 타이머가 있다면 취소
+    _autoSendTimer?.cancel();
+    
+    try {
+      // 음성 인식 시작 피드백
+      _showVoiceRecognitionStatus('음성 인식을 시작합니다...');
+      
+      _speechHandler.startListening((result) {
+        setState(() {
+          _recognizedText = result.recognizedWords;
+          _textController.text = _recognizedText;
+          _textController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _textController.text.length),
+          );
+          
+          // 마지막으로 인식된 텍스트 저장
+          _lastRecognizedText = _recognizedText;
+        });
+
+        // 자동 전송이 활성화되어 있고, 텍스트가 비어있지 않으면 타이머 설정
+        if (_autoSendEnabled && _recognizedText.trim().isNotEmpty) {
+          _autoSendTimer?.cancel(); // 기존 타이머 취소
+          _autoSendTimer = Timer(Duration(seconds: 2), () {
+            // 2초 동안 새로운 음성 입력이 없으면 자동으로 전송
+            if (_recognizedText.trim().isNotEmpty && 
+                _textController.text == _recognizedText) {
+              _showVoiceRecognitionStatus('음성 메시지를 자동 전송합니다.');
+              _stopListening();
+              _sendMessage();
+            }
+          });
+        }
       });
-    });
+    } catch (e) {
+      print("Start listening failed: $e");
+      // 권한 관련 오류인 경우 다이얼로그 표시
+      if (e.toString().contains('permission') || 
+          e.toString().contains('denied') ||
+          e.toString().contains('not-allowed')) {
+        _showMicPermissionDialog();
+      } else {
+        _showVoiceRecognitionStatus('음성 인식을 시작할 수 없습니다.', isError: true);
+      }
+    }
   }
 
   void _stopListening() async {
     await _speechHandler.stopListening();
-    _recognizedText = "";
-    setState(() {});
+    _autoSendTimer?.cancel(); // 타이머 취소
+    
+    setState(() {
+      _recognizedText = "";
+    });
+    
+    // 연속 인식 모드가 활성화되어 있다면 잠시 후 다시 시작
+    if (_continuousListening && !_isInLevelTest) {
+      Timer(Duration(milliseconds: 500), () {
+        if (_continuousListening && !_speechHandler.isListening.value) {
+          _startListening();
+        }
+      });
+    }
   }
 
   Widget _buildQuickReply(String title, String text, [String intent = ""]) {
@@ -752,6 +873,218 @@ class _ChatBotInputState extends State<ChatBotInput> {
   }
 
   @override
+  void dispose() {
+    _autoSendTimer?.cancel();
+    _textController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // 개선된 마이크 버튼 위젯
+  Widget _buildEnhancedMicButton() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: _speechHandler.isListening,
+      builder: (context, isListening, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // 외부 파형 애니메이션 (음성 인식 중일 때)
+            if (isListening)
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.red.withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: 1000),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.red.withOpacity(0.1),
+                  ),
+                ),
+              ),
+            // 메인 마이크 버튼
+            GestureDetector(
+              onTap: _isInLevelTest
+                  ? null
+                  : () {
+                      if (isListening) {
+                        _stopListening();
+                      } else {
+                        _startListening();
+                      }
+                    },
+              onLongPress: _isInLevelTest ? null : _showSTTSettings,
+              child: AnimatedContainer(
+                duration: Duration(milliseconds: 200),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isListening ? Colors.red : Colors.grey.shade700,
+                  boxShadow: isListening
+                      ? [
+                          BoxShadow(
+                            color: Colors.red.withOpacity(0.3),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          )
+                        ]
+                      : null,
+                ),
+                child: Icon(
+                  isListening ? Icons.mic : Icons.mic_off,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+            // 인식된 텍스트가 있을 때 표시되는 작은 점
+            if (_recognizedText.isNotEmpty && !isListening)
+              Positioned(
+                top: 5,
+                right: 5,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  // STT 설정 다이얼로그
+  void _showSTTSettings() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF1E2133),
+        title: Text(
+          'STT 설정',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 자동 전송 설정
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '자동 전송',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                Switch(
+                  value: _autoSendEnabled,
+                  onChanged: (value) {
+                    setState(() {
+                      _autoSendEnabled = value;
+                      if (!value) {
+                        _autoSendTimer?.cancel();
+                      }
+                    });
+                    Navigator.pop(context);
+                  },
+                  activeColor: Colors.blue,
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Text(
+              '음성 인식 완료 후 2초 뒤 자동으로 메시지를 전송합니다.',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+              ),
+            ),
+            SizedBox(height: 16),
+            // 연속 음성 인식 설정
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '연속 인식',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                Switch(
+                  value: _continuousListening,
+                  onChanged: (value) {
+                    setState(() {
+                      _continuousListening = value;
+                    });
+                    Navigator.pop(context);
+                    if (value && !_speechHandler.isListening.value) {
+                      _startListening();
+                    }
+                  },
+                  activeColor: Colors.blue,
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Text(
+              '한 번 활성화하면 계속해서 음성을 인식합니다.',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              '확인',
+              style: TextStyle(color: Colors.blue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 음성 인식 상태 토스트 메시지
+  void _showVoiceRecognitionStatus(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error : Icons.mic,
+              color: Colors.white,
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: isError ? Colors.red.shade700 : Colors.blue.shade700,
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
@@ -871,30 +1204,6 @@ class _ChatBotInputState extends State<ChatBotInput> {
                               ),
                               child: Row(
                                 children: [
-                                  ValueListenableBuilder<bool>(
-                                    valueListenable: _speechHandler.isListening,
-                                    builder: (context, isListening, child) {
-                                      return IconButton(
-                                        icon: Icon(
-                                          isListening
-                                              ? Icons.mic
-                                              : Icons.mic_off,
-                                          color: isListening
-                                              ? Colors.red
-                                              : Colors.grey,
-                                        ),
-                                        onPressed: _isInLevelTest
-                                            ? null // 레벨 테스트 중일 때는 비활성화
-                                            : () {
-                                                if (isListening) {
-                                                  _stopListening();
-                                                } else {
-                                                  _startListening();
-                                                }
-                                              },
-                                      );
-                                    },
-                                  ),
                                   Expanded(
                                     child: Container(
                                       padding: EdgeInsets.symmetric(
@@ -926,6 +1235,11 @@ class _ChatBotInputState extends State<ChatBotInput> {
                                       ),
                                     ),
                                   ),
+                                  SizedBox(width: 8),
+                                  // 마이크 버튼 (전송 버튼 왼쪽)
+                                  _buildEnhancedMicButton(),
+                                  SizedBox(width: 8),
+                                  // 전송 버튼 (가장 오른쪽)
                                   IconButton(
                                     icon: Icon(
                                       Icons.send,
@@ -965,7 +1279,28 @@ class _ChatBotInputState extends State<ChatBotInput> {
                   style: TextStyle(color: Colors.grey),
                 ),
               ),
-              Icon(Icons.mic, color: Colors.grey),
+              // 음성 인식 상태에 따른 동적 아이콘
+              ValueListenableBuilder<bool>(
+                valueListenable: _speechHandler.isListening,
+                builder: (context, isListening, child) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_autoSendEnabled)
+                        Icon(
+                          Icons.auto_awesome,
+                          color: Colors.amber,
+                          size: 16,
+                        ),
+                      SizedBox(width: 4),
+                      Icon(
+                        isListening ? Icons.mic : Icons.mic_off,
+                        color: isListening ? Colors.red : Colors.grey,
+                      ),
+                    ],
+                  );
+                },
+              ),
             ],
           ),
         ),

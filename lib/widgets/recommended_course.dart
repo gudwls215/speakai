@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/utils/token_manager.dart';
 
 class RecommendedCourse extends StatefulWidget {
   final String title;
@@ -179,13 +180,20 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
   Future<void> _setTutorCurrentCourse(
       BuildContext context, String courseId, String? firstChapterId) async {
     final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final accessToken = await TokenManager.getValidAccessToken();
+    if (accessToken == null) {
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+      }
+      return;
+    }
+    
     try {
       final response = await http.post(
         Uri.parse(
             '$apiBaseUrl/api/public/site/apiSetTutorCurrentCourse?courseId=$courseId'),
         headers: {
-          'Authorization': 'Bearer $jwt',
+          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
       );
@@ -199,6 +207,10 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('코스가 성공적으로 선택되었습니다.')),
           );
+        }
+      } else if (response.statusCode == 401) {
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
         }
       } else {
         if (mounted) {
@@ -222,21 +234,32 @@ class _CourseDetailSheetState extends State<CourseDetailSheet> {
       _error = null;
     });
     try {
-      // 인증토큰 추가
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final accessToken = await TokenManager.getValidAccessToken();
+      if (accessToken == null) {
+        setState(() {
+          _error = '인증이 필요합니다.';
+          _isLoading = false;
+        });
+        return;
+      }
+      
       final url = Uri.parse(
           '$apiBaseUrl/api/public/site/apiGetCourseDetail/${widget.courseId}');
       final response = await http.get(
         url,
         headers: {
-          'Authorization': 'Bearer $jwt',
+          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
       );
       if (response.statusCode == 200) {
         setState(() {
           _details = json.decode(response.body);
+          _isLoading = false;
+        });
+      } else if (response.statusCode == 401) {
+        setState(() {
+          _error = '인증이 만료되었습니다. 다시 로그인해주세요.';
           _isLoading = false;
         });
       } else {

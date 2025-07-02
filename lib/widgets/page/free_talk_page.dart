@@ -68,19 +68,35 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
   }
 
   void _initSpeech() async {
-    await _speechHandler.initialize(
-      onStatus: (status) {
-        print("onStatus: $status");
-        setState(() {});
-      },
-      onError: (dynamic error) {
-        print("Error: ${error.toString()}");
-        setState(() {});
-      },
-    );
-
-    if (!_speechHandler.isListening.value) {
-      _showMicPermissionDialog();
+    try {
+      await _speechHandler.initialize(
+        onStatus: (status) {
+          print("onStatus: $status");
+          setState(() {});
+        },
+        onError: (dynamic error) {
+          print("Error: ${error.toString()}");
+          // 권한 관련 에러인 경우에만 다이얼로그 표시
+          if (error.toString().contains('permission') || 
+              error.toString().contains('denied') ||
+              error.toString().contains('not-allowed')) {
+            _showMicPermissionDialog();
+          }
+          setState(() {});
+        },
+      );
+      
+      // 초기화 성공 시 마이크 권한이 있다고 가정
+      print("Speech initialization successful");
+      
+    } catch (e) {
+      print("Speech initialization failed: $e");
+      // 초기화 실패 시에만 권한 다이얼로그 표시
+      if (e.toString().contains('permission') || 
+          e.toString().contains('denied') ||
+          e.toString().contains('not-allowed')) {
+        _showMicPermissionDialog();
+      }
     }
   }
 
@@ -88,13 +104,66 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('마이크 권한 필요'),
-        content: Text('음성 인식을 사용하려면 브라우저에서 마이크 권한을 허용해주세요. '
-            '주소창 옆 🔒 아이콘을 클릭해 마이크 권한을 허용할 수 있어요.'),
+        backgroundColor: Color(0xFF1E2133),
+        title: Row(
+          children: [
+            Icon(Icons.mic, color: Colors.blue),
+            SizedBox(width: 8),
+            Text(
+              '마이크 권한 필요',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '음성 인식을 사용하려면 브라우저에서 마이크 권한을 허용해주세요.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.blue, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '주소창 옆 🔒 아이콘을 클릭하여 마이크 권한을 허용하세요.',
+                      style: TextStyle(color: Colors.blue, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // 권한 재시도
+              _initSpeech();
+            },
+            child: Text(
+              '다시 시도',
+              style: TextStyle(color: Colors.blue),
+            ),
+          ),
+          TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('확인'),
+            child: Text(
+              '확인',
+              style: TextStyle(color: Colors.grey),
+            ),
           ),
         ],
       ),
@@ -107,15 +176,33 @@ class _FreeTalkMessageState extends State<FreeTalkMessage> {
       return;
     }
 
-    _speechHandler.startListening((result) {
-      setState(() {
-        _recognizedText = result.recognizedWords;
-        _textController.text = _recognizedText;
-        _textController.selection = TextSelection.fromPosition(
-          TextPosition(offset: _textController.text.length),
-        );
+    try {
+      _speechHandler.startListening((result) {
+        setState(() {
+          _recognizedText = result.recognizedWords;
+          _textController.text = _recognizedText;
+          _textController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _textController.text.length),
+          );
+        });
       });
-    });
+    } catch (e) {
+      print("Start listening failed: $e");
+      // 권한 관련 오류인 경우 다이얼로그 표시
+      if (e.toString().contains('permission') || 
+          e.toString().contains('denied') ||
+          e.toString().contains('not-allowed')) {
+        _showMicPermissionDialog();
+      } else {
+        // 일반적인 오류 처리
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('음성 인식을 시작할 수 없습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _stopListening() async {

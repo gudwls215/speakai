@@ -8,6 +8,7 @@ import 'package:speakai/providers/lesson_provider.dart';
 import 'package:speakai/widgets/page/pronunciation_page.dart';
 import 'package:speakai/widgets/chapter_title.dart';
 import 'package:speakai/widgets/category_card.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'package:speakai/widgets/next_lesson_card.dart';
 import 'package:speakai/widgets/page/voca_multiple_page.dart';
 import 'package:speakai/widgets/recommended_course.dart';
@@ -41,14 +42,21 @@ class _HomePageState extends State<HomePage> {
       _isLoadingRecommend = true;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final accessToken = await TokenManager.getValidAccessToken();
+      if (accessToken == null) {
+        // Redirect to login if no valid token
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+        }
+        return;
+      }
+      
       final url = Uri.parse(
           '$apiBaseUrl/api/public/site/apiRecommendCoursesByOnboarding');
       final response = await http.get(
         url,
         headers: {
-          'Authorization': 'Bearer $jwt',
+          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
       );
@@ -58,6 +66,11 @@ class _HomePageState extends State<HomePage> {
           _recommendedCourses = data.cast<Map<String, dynamic>>();
           _isLoadingRecommend = false;
         });
+      } else if (response.statusCode == 401) {
+        // Token expired, redirect to login
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+        }
       } else {
         setState(() {
           _recommendedCourses = [];
@@ -74,7 +87,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<Map<String, String>?> getCurrentLessonCourseChapter() async {
     final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final accessToken = await TokenManager.getValidAccessToken();
+    if (accessToken == null) {
+      return null;
+    }
+    
     final currentCourseId = prefs.getInt('current_course')?.toString() ?? '';
     final currentChapterId = prefs.getString('current_chapter') ?? '';
 
@@ -88,7 +105,7 @@ class _HomePageState extends State<HomePage> {
       final response = await http.get(
         url,
         headers: {
-          'Authorization': 'Bearer $jwt',
+          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
       );

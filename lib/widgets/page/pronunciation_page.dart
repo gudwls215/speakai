@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'package:speakai/config.dart';
 
 class PronunciationAssessment extends StatefulWidget {
@@ -246,11 +247,7 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
         // Initialize the audio player
         _audioPlayer = html.AudioElement(audioUrl);
 
-        setState(() {
-          _isProcessing = false;
-        });
-
-        // Process the recording
+        // Process the recording (this will set _isProcessing to false when done)
         await _processRecording();
       }
     } catch (e) {
@@ -263,8 +260,9 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   }
 
   Future<void> _fetchBookmarks() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final jwt = await TokenManager.getValidAccessToken();
+    if (jwt == null) return; // 토큰이 없으면 조용히 실패
+    
     final url =
         Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
     try {
@@ -306,8 +304,14 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   }
 
   Future<void> _saveBookmark() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final jwt = await TokenManager.getValidAccessToken();
+    if (jwt == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('인증이 필요합니다.')),
+      );
+      return;
+    }
+    
     final chapterId = widget.chapter;
     final sentence = _conversationList![_currentIndex]['en'];
     final translate = await _fetchTranslationForBookmark(sentence);
@@ -349,8 +353,14 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
   }
 
   Future<void> _deleteBookmark() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final jwt = await TokenManager.getValidAccessToken();
+    if (jwt == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('인증이 필요합니다.')),
+      );
+      return;
+    }
+    
     final sentence = _conversationList![_currentIndex]['en'];
 
     final url = Uri.parse(
@@ -758,24 +768,25 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
                         onPressed: () async {
                           // 마지막 문장일 때: 서버로 말한 문장 전송
                           try {
-                            final prefs = await SharedPreferences.getInstance();
-                            final jwt = prefs.getString('jwt_token') ?? '';
-                            final url = Uri.parse(
-                                '$apiBaseUrl/api/public/site/apiInsertTutorSentenceComp');
-                            final response = await http.post(
-                              url,
-                              headers: {
-                                'Authorization': 'Bearer $jwt',
-                                'Content-Type': 'application/json',
-                              },
-                              body: json.encode({
-                                'course': widget.course,
-                                'lesson': widget.lesson,
-                                'chapter': widget.chapter,
-                                'sentence': _conversationList,
-                                // 필요시 추가 데이터
-                              }),
-                            );
+                            final jwt = await TokenManager.getValidAccessToken();
+                            if (jwt != null) {
+                              final url = Uri.parse(
+                                  '$apiBaseUrl/api/public/site/apiInsertTutorSentenceComp');
+                              await http.post(
+                                url,
+                                headers: {
+                                  'Authorization': 'Bearer $jwt',
+                                  'Content-Type': 'application/json',
+                                },
+                                body: json.encode({
+                                  'course': widget.course,
+                                  'lesson': widget.lesson,
+                                  'chapter': widget.chapter,
+                                  'sentence': _conversationList,
+                                  // 필요시 추가 데이터
+                                }),
+                              );
+                            }
                             // 성공/실패에 상관없이 이전 페이지로 이동
                             if (mounted) Navigator.of(context).pop();
                           } catch (e) {
@@ -798,19 +809,41 @@ class _PronunciationAssessmentState extends State<PronunciationAssessment> {
               const SizedBox(height: 16),
 
               if (_isProcessing)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color.fromARGB(179, 59, 197, 221),
-                        ),
-                        SizedBox(height: 16),
-                        Text('Processing your pronunciation...'),
-                      ],
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900]?.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color.fromARGB(179, 59, 197, 221),
+                      width: 1,
                     ),
+                  ),
+                  child: const Column(
+                    children: [
+                      CircularProgressIndicator(
+                        strokeWidth: 3,
+                        color: Color.fromARGB(179, 59, 197, 221),
+                      ),
+                      SizedBox(height: 20),
+                      Text(
+                        'Processing your pronunciation...',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Please wait while we analyze your speech',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 

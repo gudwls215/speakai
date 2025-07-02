@@ -5,6 +5,7 @@ import 'package:speakai/widgets/page/pronunciation_page.dart';
 import 'package:speakai/widgets/page/video_player_page.dart';
 import 'package:speakai/widgets/page/voca_multiple_page.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/utils/token_manager.dart';
 
 class LessonCard extends StatefulWidget {
   final int index;
@@ -197,17 +198,29 @@ class _LessonCardState extends State<LessonCard> {
           // ▼▼▼ 추가: 챕터 업데이트 API 호출 ▼▼▼
           final chapterId = widget.chapter;
           final prefs = await SharedPreferences.getInstance();
-          final jwt = prefs.getString('jwt_token') ?? '';
+          final accessToken = await TokenManager.getValidAccessToken();
+          if (accessToken == null) {
+            if (mounted) {
+              Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+            }
+            return;
+          }
+          
           prefs.setString('current_chapter', chapterId);
           try {
             final response = await http.post(
               Uri.parse('$apiBaseUrl/api/public/site/apiSetTutorCurrentChapter?chapterId=$chapterId'),
               headers: {
-                'Authorization': 'Bearer $jwt',
+                'Authorization': 'Bearer $accessToken',
                 'Content-Type': 'application/json',
               },
             );
-            if (response.statusCode != 200) {
+            if (response.statusCode == 401) {
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+              }
+              return;
+            } else if (response.statusCode != 200) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('챕터 업데이트 실패: ${response.body}')),

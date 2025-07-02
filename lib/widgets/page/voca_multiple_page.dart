@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/utils/token_manager.dart';
 
 class VocaMultiple extends StatefulWidget {
   final String course;
@@ -137,8 +138,14 @@ class _VocaMultipleState extends State<VocaMultiple> {
 
   // 2. 단어 북마크 저장 함수 추가
   Future<void> _saveWordBookmark(String word) async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final accessToken = await TokenManager.getValidAccessToken();
+    if (accessToken == null) {
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+      }
+      return;
+    }
+    
     final translate = await _fetchTranslationForBookmark(word);
     final url =
         Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmark');
@@ -151,7 +158,7 @@ class _VocaMultipleState extends State<VocaMultiple> {
       final response = await http.post(
         url,
         headers: {
-          'Authorization': 'Bearer $jwt',
+          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
         body: body,

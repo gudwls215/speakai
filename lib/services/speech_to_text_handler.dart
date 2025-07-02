@@ -15,31 +15,49 @@ class SpeechToTextHandler {
     required Function(String status) onStatus,
     required Function(String error) onError,
   }) async {
-    _speechEnabled = await _speech.initialize(
-      onStatus: (status) {
-        onStatus(status);
-        isListening.value = (status == "listening");
+    try {
+      _speechEnabled = await _speech.initialize(
+        onStatus: (status) {
+          onStatus(status);
+          isListening.value = (status == "listening");
 
-        // Reset inactivity timer if listening
-        if (status == "listening") {
-          _resetInactivityTimer();
-        } else {
+          // Reset inactivity timer if listening
+          if (status == "listening") {
+            _resetInactivityTimer();
+          } else {
+            _cancelInactivityTimer();
+          }
+        },
+        onError: (dynamic error) {
+          onError(error.toString());
+          isListening.value = false;
           _cancelInactivityTimer();
-        }
-      },
-      onError: (dynamic error) {
-        onError(error.toString());
-        isListening.value = false;
-        _cancelInactivityTimer();
-      },
-    );
+        },
+      );
+      
+      if (!_speechEnabled) {
+        throw Exception('Speech recognition not available or permission denied');
+      }
+    } catch (e) {
+      _speechEnabled = false;
+      onError(e.toString());
+      throw e; // 오류를 다시 던져서 호출하는 곳에서 처리할 수 있도록 함
+    }
   }
 
   void startListening(Function(SpeechRecognitionResult result) onResult) {
     if (_speechEnabled) {
-      _speech.listen(onResult: onResult, localeId: "en_US");
-      isListening.value = true;
-      _resetInactivityTimer();
+      try {
+        _speech.listen(onResult: onResult, localeId: "en_US");
+        isListening.value = true;
+        _resetInactivityTimer();
+      } catch (e) {
+        isListening.value = false;
+        _cancelInactivityTimer();
+        throw e; // 오류를 다시 던져서 호출하는 곳에서 처리할 수 있도록 함
+      }
+    } else {
+      throw Exception('Speech recognition not initialized or permission denied');
     }
   }
 

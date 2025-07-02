@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/utils/token_manager.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
@@ -34,8 +35,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   Future<void> _sendOnboardingSelections() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final accessToken = await TokenManager.getValidAccessToken();
+    if (accessToken == null) {
+      // If no valid token, redirect to login
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+      }
+      return;
+    }
+    
     final url = Uri.parse(
         '$apiBaseUrl/api/public/site/apiOnboardingSelections');
 
@@ -61,11 +69,18 @@ class _OnboardingPageState extends State<OnboardingPage> {
       final response = await http.post(
         url,
         headers: {
-          'Authorization': 'Bearer $jwt',
+          'Authorization': 'Bearer $accessToken',
           'Content-Type': 'application/json',
         },
         body: body,
       );
+      
+      if (response.statusCode == 401) {
+        // Token expired, redirect to login
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+        }
+      }
       // 필요시 응답 처리
     } catch (e) {
       // 네트워크 오류 등 처리

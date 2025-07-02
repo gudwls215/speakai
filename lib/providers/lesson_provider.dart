@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart'; // 추가
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'package:speakai/config.dart';
 
 class LessonProvider with ChangeNotifier {
@@ -28,17 +29,17 @@ Future<void> fetchLessons(BuildContext? context, {bool forceReload = false}) asy
     notifyListeners();
     print('Loading lessons...');
 
-    // SharedPreferences에서 JWT 토큰 가져오기
+    // TokenManager로 유효한 액세스 토큰 가져오기
+    final jwt = await TokenManager.getValidAccessToken();
     final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
     final currentCourseFromPrefs = prefs.getInt('current_course') ?? 0;
     final currentChapterFromPrefs = prefs.getString('current_chapter') ?? '';
     print('Current Course: $currentCourse');
     currentCourse = currentCourseFromPrefs.toString();
     currentChapter = currentChapterFromPrefs;
-    print('JWT Token: $jwt');
-    if (jwt.isEmpty) {
-      print('JWT Token is empty');
+    print('Access Token: ${jwt != null ? "Valid" : "Invalid"}');
+    if (jwt == null) {
+      print('Access Token is null');
       _isLoading = false;
       notifyListeners();
       // 로그인 페이지로 이동

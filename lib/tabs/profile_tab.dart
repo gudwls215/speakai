@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'package:speakai/config.dart';
 
 class ProfileTab extends StatefulWidget {
@@ -30,8 +31,14 @@ class _ProfileTabState extends State<ProfileTab> {
 
   // '말한 문장' 갯수 가져오기
   Future<void> _fetchCompletedSentenceCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final jwt = await TokenManager.getValidAccessToken();
+    if (jwt == null) {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/intro');
+      }
+      return;
+    }
+    
     final url =
         Uri.parse('$apiBaseUrl/api/public/site/apiGetTutorSentenceCompCount');
     try {
@@ -58,8 +65,14 @@ class _ProfileTabState extends State<ProfileTab> {
       _isLoadingStudyTime = true;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+      
       final url =
           Uri.parse('$apiBaseUrl/api/public/site/apiGetTotalLessonStudyTime');
       final response = await http.get(
@@ -98,8 +111,14 @@ class _ProfileTabState extends State<ProfileTab> {
       _courseError = null;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+      
       final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
       final response = await http.post(
         url,
@@ -206,8 +225,14 @@ class _ProfileTabState extends State<ProfileTab> {
     bool hasMore = true;
     
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+        Navigator.of(context).pushReplacementNamed('/intro');
+        return [];
+      }
       
       while (hasMore) {
         final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
@@ -1009,8 +1034,14 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
       _error = null;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+      
       final url =
           Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
       final response = await http.get(
@@ -1169,8 +1200,14 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
       _error = null;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+      
       final url =
           Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmarks');
       final response = await http.get(

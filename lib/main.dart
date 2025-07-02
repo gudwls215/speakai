@@ -5,15 +5,16 @@ import 'package:speakai/providers/chat_provider.dart';
 import 'package:speakai/providers/free_talk_provider.dart';
 import 'package:speakai/providers/lesson_provider.dart';
 import 'package:speakai/widgets/page/intro_page.dart';
+import 'package:speakai/widgets/page/login_page.dart';
+import 'package:speakai/widgets/page/onboarding_page.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'tabs/home_tab.dart';
 import 'tabs/free_talk_tab.dart';
-import 'tabs/review_tab.dart';
-import 'tabs/challenge_tab.dart';
 import 'tabs/profile_tab.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:flutter/rendering.dart';
+import 'package:dio/dio.dart';
+import 'package:speakai/config.dart';
 
 void main() {
   // 디버그 모드에서 위젯 경계선 표시
@@ -33,29 +34,71 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  Future<bool> _isLoggedIn() async {
+  Future<String> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
-    print('Token: $token');
-    // 토큰이 null이 아니고, (필요하다면) 유효성 검사 추가
-    return token != null && token.isNotEmpty;
-    //return false;
+    
+    // TokenManager를 통해 유효한 Access Token 확인
+    final accessToken = await TokenManager.getValidAccessToken();
+    print('Access Token: $accessToken');
+    
+    if (accessToken == null) {
+      print('No valid access token found, redirecting to intro page');
+      return 'intro'; // 토큰이 없거나 갱신 실패 시 인트로 페이지로
+    }
+    
+    // 온보딩 상태 체크
+    final isOnboarded = prefs.getBool('is_onboarded') ?? false;
+    if (!isOnboarded) {
+      return 'onboarding'; // 온보딩이 안되어 있으면 온보딩 페이지로
+    }
+    
+    return 'home'; // 모든 조건을 만족하면 홈으로
+  }
+
+  Future<void> _clearLoginData(SharedPreferences prefs) async {
+    await prefs.remove('access_token');
+    await prefs.remove('refresh_token');
+    await prefs.remove('user');
+    await prefs.remove('is_onboarded');
+    await prefs.remove('token_expiry');
+    await prefs.remove('last_login');
+    await prefs.remove('current_chapter');
+    await prefs.remove('current_course');
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _isLoggedIn(),
+    return FutureBuilder<String>(
+      future: _checkLoginStatus(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           // 로딩 중
           return const MaterialApp(
             home: Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              backgroundColor: Colors.black,
+              body: Center(
+                child: CircularProgressIndicator(color: Colors.blue),
+              ),
             ),
             debugShowCheckedModeBanner: false,
           );
         }
+        
+        Widget initialPage;
+        switch (snapshot.data!) {
+          case 'home':
+            initialPage = const MyHomePage(title: 'SpeakAI');
+            break;
+          case 'onboarding':
+            initialPage = const OnboardingPage();
+            break;
+          case 'intro':
+          default:
+            print('Navigating to Intro Page');
+            initialPage = const IntroPage();
+            break;
+        }
+        
         return MaterialApp(
           title: 'SpeakAI',
           theme: ThemeData(
@@ -69,13 +112,12 @@ class MyApp extends StatelessWidget {
               PointerDeviceKind.mouse,
             },
           ),
-          home: snapshot.data! 
-              ? const MyHomePage(title: 'SpeakAI') 
-              : const IntroPage(),
+          home: initialPage,
           debugShowCheckedModeBanner: false,
           routes: {
             '/home': (context) => const MyHomePage(title: 'SpeakAI'),
             '/intro': (context) => const IntroPage(),
+            '/login': (context) => const LoginPage(),
           },
         );
       },

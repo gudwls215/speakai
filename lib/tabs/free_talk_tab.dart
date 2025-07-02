@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/free_talk_page.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'package:speakai/config.dart';
 
 class FreeTalkTab extends StatefulWidget {
@@ -31,8 +32,14 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
       _error = null;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+      
       final dio = Dio();
 
       String endpoint = '$apiBaseUrl/api/public/site/apiGetTutorFreeTalk';
@@ -201,6 +208,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
 
           if (result != null) {
             // 테스트하기 버튼 결과 처리
+            print('Title: ${result['title']}');
             print('User Role: ${result['userRole']}');
             print('AI Role: ${result['aiRole']}');
             print('Description: ${result['description']}');
@@ -209,7 +217,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
               context,
               MaterialPageRoute(
                 builder: (context) => FreeTalkMessage(
-                  title: '나만의 시나리오',
+                  title: result['title'] ?? '나만의 시나리오',
                   emoji: '🎨',
                   userRole: result['userRole']!,
                   aiRole: result['aiRole']!,
@@ -300,13 +308,36 @@ class PostCard extends StatefulWidget {
   State<PostCard> createState() => _PostCardState();
 }
 
-class _PostCardState extends State<PostCard> {
+class _PostCardState extends State<PostCard> with SingleTickerProviderStateMixin {
   late bool _isFavorite;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  bool _isHovered = false;
 
   @override
   void initState() {
     super.initState();
     _isFavorite = widget.isFavorite; // 초기값을 widget에서 받아옴
+    
+    // 애니메이션 컨트롤러 초기화
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _toggleFavorite() async {
@@ -315,8 +346,14 @@ class _PostCardState extends State<PostCard> {
       _isFavorite = newFavorite;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+      
       final dio = Dio();
       // 관심 등록/해제 API 호출
       final response = await dio.post(
@@ -366,94 +403,134 @@ class _PostCardState extends State<PostCard> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showPostDetails(context),
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        color: const Color(0xFF1F2937),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF374151),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        widget.profileEmoji,
-                        style: const TextStyle(fontSize: 20),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        setState(() {
+          _isHovered = true;
+        });
+      },
+      onExit: (_) {
+        setState(() {
+          _isHovered = false;
+        });
+      },
+      child: GestureDetector(
+        onTapDown: (_) => _animationController.forward(),
+        onTapUp: (_) => _animationController.reverse(),
+        onTapCancel: () => _animationController.reverse(),
+        onTap: () => _showPostDetails(context),
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: _isHovered 
+                      ? const Color(0xFF2563EB).withOpacity(0.1)
+                      : const Color(0xFF1F2937),
+                  borderRadius: BorderRadius.circular(12),
+                  border: _isHovered 
+                      ? Border.all(color: const Color(0xFF2563EB).withOpacity(0.3), width: 1)
+                      : null,
+                  boxShadow: _isHovered 
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF2563EB).withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.username,
-                        style: TextStyle(
-                          color: Colors.grey.shade400,
-                          fontSize: 14,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF374151),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                widget.profileEmoji,
+                                style: const TextStyle(fontSize: 20),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.username,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  widget.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              _isFavorite ? Icons.favorite : Icons.favorite_border,
+                              color: _isFavorite ? Colors.red : Colors.white,
+                            ),
+                            onPressed: _toggleFavorite,
+                          ),
+                        ],
                       ),
-                      Text(
-                        widget.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      if (widget.description.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.description,
+                          style: TextStyle(
+                            color: Colors.grey.shade300,
+                            fontSize: 14,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
+                      ],
+                      if (widget.engagementCount.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            widget.engagementCount,
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: Icon(
-                      _isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: _isFavorite ? Colors.red : Colors.white,
-                    ),
-                    onPressed: _toggleFavorite,
-                  ),
-                ],
+                ),
               ),
-              if (widget.description.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  widget.description,
-                  style: TextStyle(
-                    color: Colors.grey.shade300,
-                    fontSize: 14,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              if (widget.engagementCount.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    widget.engagementCount,
-                    style: TextStyle(
-                      color: Colors.grey.shade400,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -469,6 +546,7 @@ class CreateScenarioBottomSheet extends StatefulWidget {
 }
 
 class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _userRoleController = TextEditingController();
   final TextEditingController _aiRoleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -494,6 +572,7 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _userRoleController.dispose();
     _aiRoleController.dispose();
     _descriptionController.dispose();
@@ -501,16 +580,18 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
   }
 
   void _onSubmit() {
+    final title = _titleController.text.trim();
     final userRole = _userRoleController.text.trim();
     final aiRole = _aiRoleController.text.trim();
     final description = _descriptionController.text.trim();
 
-    if (userRole.isNotEmpty && aiRole.isNotEmpty && description.isNotEmpty) {
+    if (title.isNotEmpty && userRole.isNotEmpty && aiRole.isNotEmpty && description.isNotEmpty) {
       Navigator.pop(context, {
+        'title': title,
         'userRole': userRole,
         'aiRole': aiRole,
         'description': description,
-        'profileEmoji': _selectedEmoji, // 선택한 이모지 전달
+        'profileEmoji': _selectedEmoji,
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -522,15 +603,24 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
   Future<void> _onSharePressed() async {
     final prefs = await SharedPreferences.getInstance();
     final userString = prefs.getString('user');
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final jwt = await TokenManager.getValidAccessToken();
+    if (jwt == null) {
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/intro');
+      }
+      return;
+    }
+    
     if (userString != null) {
       try {
         final userMap = json.decode(userString);
         final nickname = userMap['nickname'];
 
-        final title = _descriptionController.text.trim().isNotEmpty
-            ? _descriptionController.text.trim().split('\n').first
-            : '';
+        final title = _titleController.text.trim().isNotEmpty
+            ? _titleController.text.trim()
+            : _descriptionController.text.trim().isNotEmpty
+                ? _descriptionController.text.trim().split('\n').first
+                : '';
         final userRole = _userRoleController.text.trim();
         final aiRole = _aiRoleController.text.trim();
         final description = _descriptionController.text.trim();
@@ -660,6 +750,20 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
             child: ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                // Title
+                TextField(
+                  controller: _titleController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: '제목',
+                    labelStyle: TextStyle(color: Colors.grey),
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // User Role
                 TextField(
                   controller: _userRoleController,
@@ -938,6 +1042,7 @@ class PostDetailBottomSheet extends StatelessWidget {
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
                         builder: (context) => EditScenarioBottomSheet(
+                          title: title,
                           userRole: userRole,
                           aiRole: aiRole,
                           description: description,
@@ -1012,12 +1117,14 @@ class PostDetailBottomSheet extends StatelessWidget {
 }
 
 class EditScenarioBottomSheet extends StatefulWidget {
+  final String title;
   final String userRole;
   final String aiRole;
   final String description;
 
   const EditScenarioBottomSheet({
     Key? key,
+    required this.title,
     required this.userRole,
     required this.aiRole,
     required this.description,
@@ -1029,6 +1136,7 @@ class EditScenarioBottomSheet extends StatefulWidget {
 }
 
 class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
+  late TextEditingController _titleController;
   late TextEditingController _userRoleController;
   late TextEditingController _aiRoleController;
   late TextEditingController _descriptionController;
@@ -1036,6 +1144,7 @@ class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController(text: widget.title);
     _userRoleController = TextEditingController(text: widget.userRole);
     _aiRoleController = TextEditingController(text: widget.aiRole);
     _descriptionController = TextEditingController(text: widget.description);
@@ -1043,28 +1152,11 @@ class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _userRoleController.dispose();
     _aiRoleController.dispose();
     _descriptionController.dispose();
     super.dispose();
-  }
-
-  void _onSubmit() {
-    final userRole = _userRoleController.text.trim();
-    final aiRole = _aiRoleController.text.trim();
-    final description = _descriptionController.text.trim();
-
-    if (userRole.isNotEmpty && aiRole.isNotEmpty && description.isNotEmpty) {
-      Navigator.pop(context, {
-        'userRole': userRole,
-        'aiRole': aiRole,
-        'description': description,
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('모든 필드를 입력해주세요.')),
-      );
-    }
   }
 
   @override
@@ -1102,6 +1194,19 @@ class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
             child: ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                TextField(
+                  controller: _titleController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    labelText: '제목',
+                    labelStyle: TextStyle(color: Colors.grey),
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blue),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: _userRoleController,
                   style: const TextStyle(color: Colors.white),
@@ -1151,11 +1256,13 @@ class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
               height: 60, // 버튼 높이 크게
               child: ElevatedButton(
                 onPressed: () {
+                  final title = _titleController.text.trim();
                   final userRole = _userRoleController.text.trim();
                   final aiRole = _aiRoleController.text.trim();
                   final description = _descriptionController.text.trim();
 
-                  if (userRole.isNotEmpty &&
+                  if (title.isNotEmpty &&
+                      userRole.isNotEmpty &&
                       aiRole.isNotEmpty &&
                       description.isNotEmpty) {
                     Navigator.pop(context); // 먼저 바텀시트 닫기
@@ -1163,7 +1270,7 @@ class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
                       context,
                       MaterialPageRoute(
                         builder: (context) => FreeTalkMessage(
-                          title: '나만의 시나리오',
+                          title: title,
                           emoji: '🎨',
                           userRole: userRole,
                           aiRole: aiRole,
@@ -1239,8 +1346,13 @@ class _FavoritePostsPageState extends State<FavoritePostsPage> {
       _error = null;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
       final dio = Dio();
 
       // 관심 등록된 리스트만 가져오는 API 엔드포인트로 수정하세요

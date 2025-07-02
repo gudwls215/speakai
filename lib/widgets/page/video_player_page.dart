@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:dio/dio.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/utils/token_manager.dart';
 import 'dart:async';
 
 // 커스텀 비디오 컨트롤
@@ -379,12 +379,14 @@ class VideoStreamingService {
   }
 
   Future<Map<String, dynamic>?> getVideoInfo(String chapterId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final jwt = prefs.getString('jwt_token') ?? '';
+    final accessToken = await TokenManager.getValidAccessToken();
+    if (accessToken == null) {
+      return null;
+    }
 
     try {
       final response =
-          await _dio.get('$baseUrl/apiGetVideoInfo/$chapterId?token=$jwt');
+          await _dio.get('$baseUrl/apiGetVideoInfo/$chapterId?token=$accessToken');
       return response.data;
     } catch (e) {
       print('Error getting video info: $e');
@@ -498,10 +500,15 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
         _error = null;
       });
 
-      final prefs = await SharedPreferences.getInstance();
-      final jwt = prefs.getString('jwt_token') ?? '';
+      final accessToken = await TokenManager.getValidAccessToken();
+      if (accessToken == null) {
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/intro', (route) => false);
+        }
+        return;
+      }
 
-      _streamingService = VideoStreamingService(authToken: jwt);
+      _streamingService = VideoStreamingService(authToken: accessToken);
 
       _videoInfo = await _streamingService.getVideoInfo(widget.chapterId);
       if (_videoInfo == null) {
@@ -509,7 +516,7 @@ class _StreamingVideoPlayerState extends State<VideoPlayerPage> {
       }
 
       final streamingUrl =
-          _streamingService.getStreamingUrl(widget.chapterId, jwt);
+          _streamingService.getStreamingUrl(widget.chapterId, accessToken);
 
       print("Streaming URL: $streamingUrl");
 

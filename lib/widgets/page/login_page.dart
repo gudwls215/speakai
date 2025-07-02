@@ -24,18 +24,31 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('$apiBaseUrl/api/public/auth/getJwtToken'),
+        Uri.parse('$apiBaseUrl/api/public/auth/getJwtAccessToken'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'id': id, 'password': pw}),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final token = data['token'];
+        final accessToken = data['accessToken'];
+        final refreshToken = data['refreshToken'];
+        final expiresIn = data['expiresIn'] as int?; // seconds
         final user = data['user'];
-        if (token != null && token is String) {
+        
+        if (accessToken != null && refreshToken != null) {
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('jwt_token', token);
+          await prefs.setString('access_token', accessToken);
+          await prefs.setString('refresh_token', refreshToken);
+          
+          // 토큰 만료 시간 계산 및 저장
+          final loginTime = DateTime.now();
+          final expiryTime = expiresIn != null 
+              ? loginTime.add(Duration(seconds: expiresIn))
+              : loginTime.add(const Duration(hours: 1)); // 기본 1시간
+          await prefs.setString('token_expiry', expiryTime.toIso8601String());
+          await prefs.setString('last_login', loginTime.toIso8601String());
+          
           if (user != null) {
             await prefs.setString('user', jsonEncode(user));
             // tutorOnboardYn 값으로 온보딩 여부 저장
@@ -44,7 +57,7 @@ class _LoginPageState extends State<LoginPage> {
             await prefs.setString('current_chapter', currentChapter);
             await prefs.setInt('current_course', user['tutorCurrentCourseId'] ?? 0);
             await prefs.setBool('is_onboarded', isOnboarded);
-            print('isOnboarded: $isOnboarded');
+            print('Login successful - Access Token expires: ${expiryTime.toIso8601String()}');
           }
           print(mounted);
           if (!mounted) return;
