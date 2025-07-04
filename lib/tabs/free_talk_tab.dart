@@ -217,7 +217,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
               context,
               MaterialPageRoute(
                 builder: (context) => FreeTalkMessage(
-                  title: result['title'] ?? '나만의 시나리오',
+                  title: result['title'] ?? '나만의 프리톡',
                   emoji: '🎨',
                   userRole: result['userRole']!,
                   aiRole: result['aiRole']!,
@@ -234,7 +234,7 @@ class _FreeTalkTabState extends State<FreeTalkTab> {
         },
         backgroundColor: Colors.blue,
         icon: const Icon(Icons.auto_awesome),
-        label: const Text('나만의 시나리오 만들기'),
+        label: const Text('나만의 프리톡 만들기'),
       ),
     );
   }
@@ -693,7 +693,7 @@ class _CreateScenarioBottomSheetState extends State<CreateScenarioBottomSheet> {
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
-              '나만의 시나리오 만들기',
+              '나만의 프리톡 만들기',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -1051,7 +1051,7 @@ class PostDetailBottomSheet extends StatelessWidget {
                       if (result != null) {
                         // 수정된 데이터 처리 (예: 화면 갱신, 서버 전송 등)
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('시나리오가 수정되었습니다.')),
+                          const SnackBar(content: Text('프리톡가 수정되었습니다.')),
                         );
                         // 필요하다면 setState 또는 상위 콜백으로 데이터 전달
                       }
@@ -1181,7 +1181,7 @@ class _EditScenarioBottomSheetState extends State<EditScenarioBottomSheet> {
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
-              '시나리오 수정',
+              '프리톡 수정',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -1386,7 +1386,7 @@ class _FavoritePostsPageState extends State<FavoritePostsPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          '관심 등록한 시나리오',
+          '관심 등록한 프리톡',
           style: TextStyle(color: Colors.white),
         ),
       ),
@@ -1397,7 +1397,7 @@ class _FavoritePostsPageState extends State<FavoritePostsPage> {
                   child: Text(_error!, style: TextStyle(color: Colors.white)))
               : _favoritePosts.isEmpty
                   ? const Center(
-                      child: Text('관심 등록된 시나리오가 없습니다.',
+                      child: Text('관심 등록된 프리톡가 없습니다.',
                           style: TextStyle(color: Colors.white)),
                     )
                   : ListView.builder(

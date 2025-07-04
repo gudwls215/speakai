@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/utils/token_manager.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/widgets/page/bookmark_sentence_review.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({Key? key}) : super(key: key);
@@ -38,7 +39,7 @@ class _ProfileTabState extends State<ProfileTab> {
       }
       return;
     }
-    
+
     final url =
         Uri.parse('$apiBaseUrl/api/public/site/apiGetTutorSentenceCompCount');
     try {
@@ -72,7 +73,7 @@ class _ProfileTabState extends State<ProfileTab> {
         }
         return;
       }
-      
+
       final url =
           Uri.parse('$apiBaseUrl/api/public/site/apiGetTotalLessonStudyTime');
       final response = await http.get(
@@ -118,7 +119,7 @@ class _ProfileTabState extends State<ProfileTab> {
         }
         return;
       }
-      
+
       final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
       final response = await http.post(
         url,
@@ -223,7 +224,7 @@ class _ProfileTabState extends State<ProfileTab> {
     int page = 1;
     int pageSize = 50; // 한 번에 가져올 개수
     bool hasMore = true;
-    
+
     try {
       final jwt = await TokenManager.getValidAccessToken();
       if (jwt == null) {
@@ -233,10 +234,10 @@ class _ProfileTabState extends State<ProfileTab> {
         Navigator.of(context).pushReplacementNamed('/intro');
         return [];
       }
-      
+
       while (hasMore) {
         final url = Uri.parse('$apiBaseUrl/api/public/site/getCourseStatiList');
-        
+
         final requestBody = {
           "page": page.toString(),
           "size": pageSize.toString(),
@@ -244,9 +245,9 @@ class _ProfileTabState extends State<ProfileTab> {
           "order": "",
           "currentClass": "ing"
         };
-        
+
         print('페이지 $page 요청 중... (크기: $pageSize)');
-        
+
         final response = await http.post(
           url,
           headers: {
@@ -255,18 +256,18 @@ class _ProfileTabState extends State<ProfileTab> {
           },
           body: json.encode(requestBody),
         );
-        
+
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
           final currentPageCourses = data['list'] ?? [];
-          
+
           print('페이지 $page에서 ${currentPageCourses.length}개 코스 받음');
-          
+
           if (currentPageCourses.isEmpty) {
             hasMore = false;
           } else {
             allCourses.addAll(currentPageCourses);
-            
+
             // 받은 개수가 요청한 개수보다 적으면 마지막 페이지
             if (currentPageCourses.length < pageSize) {
               hasMore = false;
@@ -274,7 +275,7 @@ class _ProfileTabState extends State<ProfileTab> {
               page++;
             }
           }
-          
+
           // 안전장치: 너무 많은 페이지를 요청하지 않도록
           if (page > 20) {
             print('페이지 수 제한에 도달했습니다.');
@@ -291,10 +292,9 @@ class _ProfileTabState extends State<ProfileTab> {
           throw Exception('코스 불러오기 실패: ${response.body}');
         }
       }
-      
+
       print('총 ${allCourses.length}개의 코스를 가져왔습니다.');
       return allCourses;
-      
     } catch (e) {
       print('전체 코스 가져오기 오류: $e');
       throw Exception('네트워크 오류: $e');
@@ -356,7 +356,7 @@ class _ProfileTabState extends State<ProfileTab> {
           );
         }
         final courses = snapshot.data ?? [];
-        
+
         if (courses.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(24.0),
@@ -401,7 +401,8 @@ class _ProfileTabState extends State<ProfileTab> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade600,
                         borderRadius: BorderRadius.circular(12),
@@ -450,7 +451,8 @@ class _ProfileTabState extends State<ProfileTab> {
                                     isInProgress: isInProgress,
                                   ),
                                   if (idx != courses.length - 1)
-                                    const Divider(height: 1, color: Color(0xFF2A2E45)),
+                                    const Divider(
+                                        height: 1, color: Color(0xFF2A2E45)),
                                 ],
                               );
                             }),
@@ -475,7 +477,9 @@ class _ProfileTabState extends State<ProfileTab> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            CircleAvatar(backgroundImage: NetworkImage('https://tutor.glotos.com/assets/avatar.png')),
+            CircleAvatar(
+                backgroundImage:
+                    NetworkImage('https://tutor.glotos.com/assets/avatar.png')),
             Icon(Icons.settings, color: Colors.white),
           ],
         ),
@@ -1041,7 +1045,7 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
         }
         return;
       }
-      
+
       final url =
           Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarks');
       final response = await http.get(
@@ -1167,6 +1171,37 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
                                 },
                               ),
               ),
+              if (!_isLoading && _error == null && _bookmarks.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => BookmarSentenceReview(_bookmarks)),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        '보관한 표현으로 학습하기',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -1207,7 +1242,7 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
         }
         return;
       }
-      
+
       final url =
           Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmarks');
       final response = await http.get(

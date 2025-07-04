@@ -314,6 +314,7 @@ class _LessonListSheetState extends State<LessonListSheet> {
   Future<void> setTutorCurrentCourse(String courseId) async {
     final prefs = await SharedPreferences.getInstance();
     final jwt = await TokenManager.getValidAccessToken();
+    print('Setting current course: $courseId with JWT: $jwt');
     if (jwt == null) {
       if (mounted) {
         Navigator.of(context).pushNamedAndRemoveUntil('/intro', (route) => false);
