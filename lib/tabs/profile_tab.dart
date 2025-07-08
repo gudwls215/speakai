@@ -170,7 +170,7 @@ class _ProfileTabState extends State<ProfileTab> {
             constraints:
                 const BoxConstraints(maxWidth: 500, maxHeight: 700), // 높이 증가
             decoration: BoxDecoration(
-              color: const Color(0xFF1E2133),
+              color: Colors.grey[900],
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
@@ -525,7 +525,7 @@ class _ProfileTabState extends State<ProfileTab> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E2133),
+                  color: Colors.grey[900],
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -582,7 +582,7 @@ class _ProfileTabState extends State<ProfileTab> {
               // 북마크 및 저장 항목 섹션
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E2133),
+                  color: Colors.grey[900],
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -606,11 +606,15 @@ class _ProfileTabState extends State<ProfileTab> {
                                 const BookmarkedSentencesSheet(),
                           );
                         },
+                        borderRadius: BorderRadius.circular(16),
+                        splashColor: Colors.blue.withOpacity(0.1),
+                        highlightColor: Colors.blue.withOpacity(0.05),
                         child: _buildBookmarkItem(
                           icon: Icons.bookmark_outline,
                           iconBgColor: Colors.blue,
                           title: '보관한 표현',
                           subtitle: '두고두고 볼 나만의 표현 집합소!',
+                          showArrow: false,
                         ),
                       ),
                     ),
@@ -626,11 +630,15 @@ class _ProfileTabState extends State<ProfileTab> {
                             builder: (context) => const BookmarkedWordsSheet(),
                           );
                         },
+                        borderRadius: BorderRadius.circular(16),
+                        splashColor: Colors.amber.withOpacity(0.1),
+                        highlightColor: Colors.amber.withOpacity(0.05),
                         child: _buildBookmarkItem(
                           icon: Icons.bookmark_outline,
                           iconBgColor: Colors.amber,
                           title: '보관한 단어',
                           subtitle: 'AI 코치와 함께 발음 연습하기!',
+                          showArrow: false,
                         ),
                       ),
                     ),
@@ -683,7 +691,7 @@ class _ProfileTabState extends State<ProfileTab> {
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1E2133),
+                color: Colors.grey[900],
                 borderRadius: BorderRadius.circular(16),
               ),
               child: _isLoadingCourses
@@ -913,7 +921,7 @@ class _ProfileTabState extends State<ProfileTab> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF23263A),
+        color: Colors.grey[900],
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -978,35 +986,49 @@ class _ProfileTabState extends State<ProfileTab> {
     required Color iconBgColor,
     required String title,
     required String subtitle,
+    bool showArrow = false,
   }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: iconBgColor,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: 24,
-        ),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 24,
+          ),
         ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(
-          color: Colors.white54,
-          fontSize: 12,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
         ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 12,
+          ),
+        ),
+        trailing: showArrow 
+          ? const Icon(
+              Icons.arrow_forward_ios,
+              color: Colors.white54,
+              size: 16,
+            )
+          : null,
       ),
     );
   }
@@ -1078,6 +1100,128 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
     }
   }
 
+  Future<void> _removeBookmark(int bookmarkId, int index) async {
+    try {
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+
+      final url = Uri.parse('$apiBaseUrl/api/public/site/apiTutorSentenceBookmarkRemove');
+      final response = await http.post(
+        url,
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({'bookmarkId': bookmarkId}),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _bookmarks.removeAt(index);
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('북마크가 해제되었습니다.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else if (response.statusCode == 401) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('북마크 해제 실패: ${response.body}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('네트워크 오류: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showRemoveConfirmDialog(int bookmarkId, int index, String sentence) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF23272F),
+          title: const Text(
+            '북마크 해제',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '이 표현을 북마크에서 해제하시겠습니까?',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[800],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  sentence,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                '취소',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _removeBookmark(bookmarkId, index);
+              },
+              child: const Text(
+                '해제',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -1138,34 +1282,55 @@ class _BookmarkedSentencesSheetState extends State<BookmarkedSentencesSheet> {
                                 ),
                                 itemBuilder: (context, idx) {
                                   final item = _bookmarks[idx];
+                                  final bookmarkId = item['id'] ?? 0;
+                                  final sentence = item['sentence'] ?? '';
+                                  final translate = item['translate'] ?? '';
+                                  
                                   return ListTile(
                                     title: Text(
-                                      item['sentence'] ?? '',
+                                      sentence,
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
                                       ),
                                     ),
-                                    subtitle: (item['translate'] ?? '')
-                                            .toString()
-                                            .isNotEmpty
+                                    subtitle: translate.toString().isNotEmpty
                                         ? Text(
-                                            item['translate'],
+                                            translate,
                                             style: const TextStyle(
                                               color: Colors.blueAccent,
                                               fontSize: 14,
                                             ),
                                           )
                                         : null,
-                                    trailing: Text(
-                                      (item['createdAt'] ?? '')
-                                          .toString()
-                                          .split('T')
-                                          .first,
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 12,
-                                      ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          (item['createdAt'] ?? '')
+                                              .toString()
+                                              .split('T')
+                                              .first,
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          onPressed: () => _showRemoveConfirmDialog(
+                                            bookmarkId,
+                                            idx,
+                                            sentence,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.bookmark_remove,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
+                                          tooltip: '북마크 해제',
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },
@@ -1227,6 +1392,96 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
   void initState() {
     super.initState();
     _fetchBookmarks();
+  }
+
+  Future<void> _removeWordBookmark(int bookmarkId, int index) async {
+    try {
+      final jwt = await TokenManager.getValidAccessToken();
+      if (jwt == null) {
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/intro');
+        }
+        return;
+      }
+
+      final response = await http.delete(
+        Uri.parse('$apiBaseUrl/api/public/site/apiTutorWordBookmarkRemove/$bookmarkId'),
+        headers: {
+          'Authorization': 'Bearer $jwt',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _bookmarks.removeAt(index);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('단어 북마크가 해제되었습니다.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('북마크 해제 중 오류가 발생했습니다.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('오류가 발생했습니다: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showRemoveWordConfirmDialog(int bookmarkId, int index, String word) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF23272F),
+          title: const Text(
+            '북마크 해제',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            '"$word" 단어를 북마크에서 해제하시겠습니까?',
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                '취소',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _removeWordBookmark(bookmarkId, index);
+              },
+              child: const Text(
+                '해제',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _fetchBookmarks() async {
@@ -1335,9 +1590,12 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
                                 ),
                                 itemBuilder: (context, idx) {
                                   final item = _bookmarks[idx];
+                                  final bookmarkId = item['id'] ?? 0;
+                                  final word = item['word'] ?? '';
+                                  
                                   return ListTile(
                                     title: Text(
-                                      item['word'] ?? '',
+                                      word,
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 16,
@@ -1354,15 +1612,34 @@ class _BookmarkedWordsSheetState extends State<BookmarkedWordsSheet> {
                                             ),
                                           )
                                         : null,
-                                    trailing: Text(
-                                      (item['createdAt'] ?? '')
-                                          .toString()
-                                          .split('T')
-                                          .first,
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 12,
-                                      ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          (item['createdAt'] ?? '')
+                                              .toString()
+                                              .split('T')
+                                              .first,
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          onPressed: () => _showRemoveWordConfirmDialog(
+                                            bookmarkId,
+                                            idx,
+                                            word,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.bookmark_remove,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
+                                          tooltip: '북마크 해제',
+                                        ),
+                                      ],
                                     ),
                                   );
                                 },

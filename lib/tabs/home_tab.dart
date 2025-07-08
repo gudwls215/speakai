@@ -154,19 +154,18 @@ class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
                 cursor: SystemMouseCursors.click,
                 child: Container(
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blueAccent, width: 2),
+                    border: Border.all(color: Colors.lightBlueAccent, width: 3),
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blueAccent.withOpacity(0.4),
-                        blurRadius: 8,
+                        color: const Color.fromARGB(255, 168, 200, 255).withOpacity(0.4),
+                        blurRadius: 12,
                         spreadRadius: 1,
                       ),
                     ],
                   ),
                   child: CircleAvatar(
                     backgroundImage: NetworkImage('https://tutor.glotos.com/assets/avatar.png'),
-                    radius: 22,
                   ),
                 ),
               ),
