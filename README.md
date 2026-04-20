@@ -64,3 +64,37 @@ CREATE TABLE development.tutor_user_favorite_talk (
 ## 기타
 
 - 코드 및 기능 개선 제안은 언제든 환영합니다!
+
+
+## 배포 방법
+
+참고: config.dart에서 aiBaseUrl이 아직 로컬 IP(192.168.0.100:8001)로 되어 있어요. 운영 배포라면 tutor.glotos.com/internal로 변경 후 빌드하세요.
+
+1. 빌드     
+  /home/ttmsoft/projects/flutter/bin/flutter build web --release                                                                                                                                                                                      
+  
+                             
+  빌드 결과물은 build/web/ 폴더에 생성됩니다.                                                                                                                                                                                               
+                                                                                                                                                                                                                                            
+  2. nginx 배포                                                                                                                                                                                                                             
+                                                            
+  빌드된 파일을 nginx 서빙 디렉토리로 복사:                                                                                                                                                                                           
+  sudo cp -r build/web/* /var/www/html/
+                                                                                                  
+                                                                                                                                                                                                                                            
+  nginx 설정 확인 (SPA 라우팅을 위해 필요):                                                                                                                                                                                                 
+                    
+  sudo cat /etc/nginx/sites-enabled/glotos-unified.conf
+
+                                                                                                                                                                                                                                            
+  nginx 설정에 아래 내용이 있어야 Flutter Web 라우팅이 정상 동작합니다:                                                                                                                                                                     
+                                                                                                                                                                                                                                            
+  location / {                                                                                                                                                                                                                              
+      try_files $uri $uri/ /index.html;                     
+  }
+
+  설정 변경 후 재시작:                                                                                                                                                                                                                      
+  
+  sudo nginx -t        # 설정 문법 검사                                                                                                                                                                                                     
+  sudo systemctl reload nginx
+
