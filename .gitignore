@@ -46,3 +46,5 @@ app.*.map.json
 /android/app/.cxx
 
 /lib/config.dart
+
+/클로드 디자인2

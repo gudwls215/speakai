@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/onboarding_page.dart';
 import 'package:speakai/config.dart';
+import 'app_colors.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,11 +14,31 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _idController = TextEditingController();
-  final TextEditingController _pwController = TextEditingController();
+  final _idController = TextEditingController();
+  final _pwController = TextEditingController();
+  final _idFocus = FocusNode();
+  final _pwFocus = FocusNode();
   bool _isLoading = false;
+  bool _obscurePw = true;
+  bool _rememberMe = true;
 
-  void _login() async {
+  @override
+  void initState() {
+    super.initState();
+    _idFocus.addListener(() => setState(() {}));
+    _pwFocus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _idController.dispose();
+    _pwController.dispose();
+    _idFocus.dispose();
+    _pwFocus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
     setState(() => _isLoading = true);
     final id = _idController.text.trim();
     final pw = _pwController.text.trim();
@@ -33,33 +54,30 @@ class _LoginPageState extends State<LoginPage> {
         final data = jsonDecode(response.body);
         final accessToken = data['accessToken'];
         final refreshToken = data['refreshToken'];
-        final expiresIn = data['expiresIn'] as int?; // seconds
+        final expiresIn = data['expiresIn'] as int?;
         final user = data['user'];
-        
+
         if (accessToken != null && refreshToken != null) {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('access_token', accessToken);
           await prefs.setString('refresh_token', refreshToken);
-          
-          // 토큰 만료 시간 계산 및 저장
           final loginTime = DateTime.now();
-          final expiryTime = expiresIn != null 
+          final expiryTime = expiresIn != null
               ? loginTime.add(Duration(seconds: expiresIn))
-              : loginTime.add(const Duration(hours: 1)); // 기본 1시간
+              : loginTime.add(const Duration(hours: 1));
           await prefs.setString('token_expiry', expiryTime.toIso8601String());
           await prefs.setString('last_login', loginTime.toIso8601String());
-          
+
           if (user != null) {
             await prefs.setString('user', jsonEncode(user));
-            // tutorOnboardYn 값으로 온보딩 여부 저장
             final isOnboarded = user['tutorOnboardYn'] == true;
-            final currentChapter = user['tutorCurrentChapterId'] != null ? user['tutorCurrentChapterId'].toString() : '';
+            final currentChapter = user['tutorCurrentChapterId'] != null
+                ? user['tutorCurrentChapterId'].toString()
+                : '';
             await prefs.setString('current_chapter', currentChapter);
             await prefs.setInt('current_course', user['tutorCurrentCourseId'] ?? 0);
             await prefs.setBool('is_onboarded', isOnboarded);
-            print('Login successful - Access Token expires: ${expiryTime.toIso8601String()}');
           }
-          print(mounted);
           if (!mounted) return;
           final isOnboarded = prefs.getBool('is_onboarded') ?? false;
           if (!isOnboarded) {
@@ -72,151 +90,349 @@ class _LoginPageState extends State<LoginPage> {
           return;
         }
       }
-      // 실패 처리
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('로그인 실패'),
-          content: const Text('아이디 또는 비밀번호를 확인하세요.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
+      _showError('로그인 실패', '아이디 또는 비밀번호를 확인하세요.');
     } catch (e) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('오류'),
-          content: Text('네트워크 오류가 발생했습니다.\n$e'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
-      );
+      _showError('오류', '네트워크 오류가 발생했습니다.\n$e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _showError(String title, String msg) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.bgElev,
+        title: Text(title, style: const TextStyle(color: AppColors.text)),
+        content: Text(msg, style: const TextStyle(color: AppColors.textSec)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인', style: TextStyle(color: AppColors.accent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _dec(String hint, {Widget? suffix}) => InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: AppColors.textTer, fontSize: 15),
+        filled: true,
+        fillColor: AppColors.bgElev,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+        ),
+        suffixIcon: suffix,
+      );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 48),
-            Center(
-              child: CircleAvatar(
-                radius: 64,
-                backgroundImage: NetworkImage('https://tutor.glotos.com/assets/avatar.png'),
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              '로그인',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _idController,
-                    decoration: InputDecoration(
-                      hintText: '아이디',
-                      filled: true,
-                      fillColor: Colors.grey[900],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      hintStyle: const TextStyle(color: Colors.grey),
-                    ),
-                    style: const TextStyle(color: Colors.white),
-                    onSubmitted: (_) {
-                      FocusScope.of(context)
-                          .nextFocus(); // 아이디 입력 후 엔터 시 비밀번호로 이동
-                    },
+      backgroundColor: AppColors.bg,
+      body: Stack(
+        children: [
+          Positioned(
+            top: 0, left: 0, right: 0, height: 320,
+            child: IgnorePointer(
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0, -1.0),
+                    radius: 0.9,
+                    colors: [Color(0x3310B981), Color(0x0010B981)],
+                    stops: [0, 0.7],
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _pwController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      hintText: '비밀번호',
-                      filled: true,
-                      fillColor: Colors.grey[900],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      hintStyle: const TextStyle(color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconButton.filledTonal(
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.bgElev,
+                      foregroundColor: AppColors.text,
+                      shape: const CircleBorder(
+                          side: BorderSide(color: AppColors.border)),
+                      minimumSize: const Size(40, 40),
                     ),
-                    style: const TextStyle(color: Colors.white),
-                    onSubmitted: (_) {
-                      if (!_isLoading) _login(); // 비밀번호 입력 후 엔터 시 로그인
-                    },
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 14),
+                  ),
+                  const SizedBox(height: 28),
+
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.accent, Color(0xFF047857)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accent.withOpacity(0.27),
+                          blurRadius: 30,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.graphic_eq,
+                        color: Colors.white, size: 28),
+                  ),
+
+                  const SizedBox(height: 22),
+                  const Text(
+                    '다시 오신 걸\n환영합니다',
+                    style: TextStyle(
+                      color: AppColors.text,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    '어제 연습하던 대화, 그 자리에서 이어갈게요.',
+                    style: TextStyle(
+                        color: AppColors.textSec, fontSize: 13.5, height: 1.55),
                   ),
                   const SizedBox(height: 32),
+
+                  const _Label('ID'),
+                  TextField(
+                    controller: _idController,
+                    focusNode: _idFocus,
+                    style: const TextStyle(color: AppColors.text, fontSize: 15),
+                    decoration: _dec('아이디를 입력하세요'),
+                    onSubmitted: (_) => _pwFocus.requestFocus(),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(children: [
+                    const _Label('PASSWORD'),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: const Text('비밀번호 찾기',
+                            style: TextStyle(
+                                color: AppColors.accent, fontSize: 11)),
+                      ),
+                    ),
+                  ]),
+                  TextField(
+                    controller: _pwController,
+                    focusNode: _pwFocus,
+                    obscureText: _obscurePw,
+                    style: const TextStyle(color: AppColors.text, fontSize: 15),
+                    decoration: _dec(
+                      '••••••••',
+                      suffix: IconButton(
+                        icon: Icon(
+                          _obscurePw
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: AppColors.textSec,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscurePw = !_obscurePw),
+                      ),
+                    ),
+                    onSubmitted: (_) {
+                      if (!_isLoading) _login();
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => setState(() => _rememberMe = !_rememberMe),
+                    child: Row(children: [
+                      Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: _rememberMe
+                              ? AppColors.accent
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(
+                            color: _rememberMe
+                                ? AppColors.accent
+                                : AppColors.border,
+                          ),
+                        ),
+                        child: _rememberMe
+                            ? const Icon(Icons.check,
+                                size: 13, color: Colors.white)
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text('로그인 상태 유지',
+                          style: TextStyle(
+                              color: AppColors.textSec, fontSize: 12.5)),
+                    ]),
+                  ),
+                  const SizedBox(height: 32),
+
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                    height: 54,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
+                            borderRadius: BorderRadius.circular(14)),
+                        textStyle: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                        elevation: 0,
                       ),
                       onPressed: _isLoading ? null : _login,
                       child: _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              '로그인',
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2.5),
+                            )
+                          : const Text('로그인'),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  Row(children: const [
+                    Expanded(
+                        child: Divider(color: AppColors.border, height: 1)),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('또는',
+                          style: TextStyle(
+                              color: AppColors.textTer, fontSize: 11)),
+                    ),
+                    Expanded(
+                        child: Divider(color: AppColors.border, height: 1)),
+                  ]),
+                  const SizedBox(height: 14),
+
+                  Row(children: [
+                    Expanded(
+                      child: _SocialButton(
+                        label: 'Apple로 계속하기',
+                        bg: Colors.white,
+                        fg: Colors.black,
+                        onTap: () {},
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _SocialButton(
+                        label: 'Google로 계속하기',
+                        bg: AppColors.bgElev,
+                        fg: AppColors.text,
+                        onTap: () {},
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 22),
+
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('아직 계정이 없으신가요? ',
+                            style: TextStyle(
+                                color: AppColors.textSec, fontSize: 12.5)),
+                        GestureDetector(
+                          onTap: () {},
+                          child: const Text('가입하기',
                               style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                                color: AppColors.accent,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              )),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
-                    '돌아가기',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 15,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.textSec,
+            fontSize: 10,
+            letterSpacing: 1.2,
+          ),
+        ),
+      );
+}
+
+class _SocialButton extends StatelessWidget {
+  final String label;
+  final Color bg, fg;
+  final VoidCallback onTap;
+
+  const _SocialButton({
+    required this.label,
+    required this.bg,
+    required this.fg,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 48,
+        child: FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: bg,
+            foregroundColor: fg,
+            elevation: 0,
+            side: bg == AppColors.bgElev
+                ? const BorderSide(color: AppColors.border)
+                : BorderSide.none,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            textStyle:
+                const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          onPressed: onTap,
+          child: Text(label),
+        ),
+      );
 }
