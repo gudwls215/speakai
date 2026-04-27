@@ -191,7 +191,7 @@ class _ChatbotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 220),
+      constraints: const BoxConstraints(minHeight: 300),
       decoration: BoxDecoration(
         color: _bgElev,
         borderRadius: BorderRadius.circular(20),
@@ -219,19 +219,17 @@ class _ChatbotCard extends StatelessWidget {
                         color: _text)),
                 const SizedBox(height: 4),
                 const Text('24시간, 내 레벨에 맞춰 대화.',
-                    style: TextStyle(
-                        fontSize: 12, color: _textSec),
+                    style: TextStyle(fontSize: 12, color: _textSec),
                     maxLines: 2),
-                const SizedBox(height: 120),
+                const SizedBox(height: 200),
               ],
             ),
           ),
           Positioned(
-            bottom: -8,
-            right: -8,
+            bottom: -10,
+            right: -10,
             child: Container(
-              width: 190,
-              height: 150,
+              width: 230,
               decoration: BoxDecoration(
                 color: _bgElev2,
                 borderRadius: BorderRadius.circular(16),
@@ -246,44 +244,55 @@ class _ChatbotCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: const BoxDecoration(
-                            color: _accent, shape: BoxShape.circle),
-                      ),
-                      const SizedBox(width: 6),
-                      const Expanded(
-                        child: Text(
-                          'What do you usually do on weekends?',
-                          style: TextStyle(fontSize: 10.5, color: _text, height: 1.4),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 9, vertical: 5),
-                      decoration: BoxDecoration(
-                          color: _accent,
-                          borderRadius: BorderRadius.circular(10)),
-                      child: const Text('I usually…',
-                          style: TextStyle(
-                              fontSize: 10.5, color: Colors.white)),
-                    ),
-                  ),
+                  _chatBubble(isAi: true,  text: 'What do you do on weekends?'),
+                  const SizedBox(height: 7),
+                  _chatBubble(isAi: false, text: 'I go hiking with friends!'),
+                  const SizedBox(height: 7),
+                  _chatBubble(isAi: true,  text: 'Nice! Try: "I enjoy hiking with company."'),
+                  const SizedBox(height: 7),
+                  _chatBubble(isAi: false, text: 'I enjoy hiking with company.'),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _chatBubble({required bool isAi, required String text}) {
+    return Row(
+      mainAxisAlignment: isAi ? MainAxisAlignment.start : MainAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (isAi) ...[
+          Container(
+            width: 18, height: 18,
+            decoration: const BoxDecoration(color: _accent, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+        ],
+        Flexible(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+            decoration: BoxDecoration(
+              color: isAi ? _bgElev : _accent,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(10),
+                topRight: const Radius.circular(10),
+                bottomLeft: Radius.circular(isAi ? 2 : 10),
+                bottomRight: Radius.circular(isAi ? 10 : 2),
+              ),
+              border: isAi ? Border.all(color: _border) : null,
+            ),
+            child: Text(text,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isAi ? _text : Colors.white,
+                    height: 1.4)),
+          ),
+        ),
+      ],
     );
   }
 }
