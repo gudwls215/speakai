@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/onboarding_page.dart';
+import 'package:speakai/widgets/page/intro_page.dart';
 import 'package:speakai/config.dart';
 import 'package:speakai/utils/url_helper.dart';
 import 'app_colors.dart';
@@ -137,6 +139,19 @@ class _LoginPageState extends State<LoginPage> {
         suffixIcon: suffix,
       );
 
+  Widget _fieldWithGlow({required bool focused, required Widget child}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: focused
+            ? [BoxShadow(color: AppColors.accent.withOpacity(0.13), blurRadius: 0, spreadRadius: 3)]
+            : [],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -144,240 +159,308 @@ class _LoginPageState extends State<LoginPage> {
       body: Stack(
         children: [
           Positioned(
-            top: 0, left: 0, right: 0, height: 320,
+            top: 0, left: 0, right: 0, height: 400,
             child: IgnorePointer(
               child: Container(
                 decoration: const BoxDecoration(
                   gradient: RadialGradient(
-                    center: Alignment(0, -1.0),
-                    radius: 0.9,
-                    colors: [Color(0x3310B981), Color(0x0010B981)],
-                    stops: [0, 0.7],
+                    center: Alignment(0, -0.85),
+                    radius: 1.1,
+                    colors: [Color(0x6610B981), Color(0x0010B981)],
+                    stops: [0, 1.0],
                   ),
                 ),
               ),
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  IconButton.filledTonal(
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.bgElev,
-                      foregroundColor: AppColors.text,
-                      shape: const CircleBorder(
-                          side: BorderSide(color: AppColors.border)),
-                      minimumSize: const Size(40, 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const IntroPage()),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 14),
-                  ),
-                  const SizedBox(height: 28),
-
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppColors.accent, Color(0xFF047857)],
+                    child: Container(
+                      height: 34,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.bgElev,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AppColors.border),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withOpacity(0.27),
-                          blurRadius: 30,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(Icons.graphic_eq,
-                        color: Colors.white, size: 28),
-                  ),
-
-                  const SizedBox(height: 22),
-                  const Text(
-                    '다시 오신 걸\n환영합니다',
-                    style: TextStyle(
-                      color: AppColors.text,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      height: 1.15,
-                      letterSpacing: -0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    '어제 연습하던 대화, 그 자리에서 이어갈게요.',
-                    style: TextStyle(
-                        color: AppColors.textSec, fontSize: 13.5, height: 1.55),
-                  ),
-                  const SizedBox(height: 32),
-
-                  const _Label('ID'),
-                  TextField(
-                    controller: _idController,
-                    focusNode: _idFocus,
-                    style: const TextStyle(color: AppColors.text, fontSize: 15),
-                    decoration: _dec('아이디를 입력하세요'),
-                    onSubmitted: (_) => _pwFocus.requestFocus(),
-                  ),
-                  const SizedBox(height: 16),
-
-                  Row(children: [
-                    const _Label('PASSWORD'),
-                    const Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: GestureDetector(
-                        onTap: () {},
-                        child: const Text('비밀번호 찾기',
-                            style: TextStyle(
-                                color: AppColors.accent, fontSize: 11)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.arrow_back_ios_new,
+                              size: 11, color: AppColors.textSec),
+                          SizedBox(width: 6),
+                          Text('인트로 보기',
+                              style: TextStyle(
+                                  color: AppColors.textSec,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500)),
+                        ],
                       ),
                     ),
-                  ]),
-                  TextField(
-                    controller: _pwController,
-                    focusNode: _pwFocus,
-                    obscureText: _obscurePw,
-                    style: const TextStyle(color: AppColors.text, fontSize: 15),
-                    decoration: _dec(
-                      '••••••••',
-                      suffix: IconButton(
-                        icon: Icon(
-                          _obscurePw
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          color: AppColors.textSec,
-                          size: 18,
-                        ),
-                        onPressed: () =>
-                            setState(() => _obscurePw = !_obscurePw),
-                      ),
-                    ),
-                    onSubmitted: (_) {
-                      if (!_isLoading) _login();
-                    },
                   ),
-
-                  const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () => setState(() => _rememberMe = !_rememberMe),
-                    child: Row(children: [
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: _rememberMe
-                              ? AppColors.accent
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(
-                            color: _rememberMe
-                                ? AppColors.accent
-                                : AppColors.border,
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // brand mark — speech bubble character
+                        SizedBox(
+                          width: 116,
+                          height: 116,
+                          child: SvgPicture.string(
+                            '''<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                              <defs>
+                                <linearGradient id="bubbleFill" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0" stop-color="#ffffff"/>
+                                  <stop offset="1" stop-color="#d8fff0"/>
+                                </linearGradient>
+                                <linearGradient id="handFill" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0" stop-color="#34d399"/>
+                                  <stop offset="1" stop-color="#059669"/>
+                                </linearGradient>
+                                <radialGradient id="hi" cx="35%" cy="30%" r="55%">
+                                  <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+                                  <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+                                </radialGradient>
+                              </defs>
+                              <path d="M100 22c-42 0-72 25-72 56 0 19 12 36 30 47l-8 24c-1 3 2 5 5 4l28-15c5 1 11 2 17 2 42 0 72-25 72-56s-30-62-72-62z"
+                                fill="url(#bubbleFill)" stroke="#10b981" stroke-width="6"/>
+                              <path d="M100 22c-42 0-72 25-72 56 0 19 12 36 30 47l-8 24c-1 3 2 5 5 4l28-15c5 1 11 2 17 2 42 0 72-25 72-56s-30-62-72-62z"
+                                fill="url(#hi)"/>
+                              <ellipse cx="78" cy="78" rx="9" ry="13" fill="#0d9b6a"/>
+                              <ellipse cx="122" cy="78" rx="9" ry="13" fill="#0d9b6a"/>
+                              <circle cx="80" cy="74" r="3" fill="#fff"/>
+                              <circle cx="124" cy="74" r="3" fill="#fff"/>
+                              <g transform="translate(112 110)">
+                                <path d="M-2 0 c-4 4 -6 12 -2 22 c4 8 14 14 22 12 c8 -2 12 -10 10 -18 c-2 -8 -10 -14 -18 -16 c-6 -2 -10 -2 -12 0z"
+                                  fill="url(#handFill)"/>
+                                <rect x="-4" y="-26" width="9" height="30" rx="4.5" fill="url(#handFill)"/>
+                                <rect x="-4" y="-26" width="9" height="6" rx="3" fill="#0d9b6a" opacity="0.4"/>
+                              </g>
+                            </svg>''',
+                            width: 116,
+                            height: 116,
                           ),
                         ),
-                        child: _rememberMe
-                            ? const Icon(Icons.check,
-                                size: 13, color: Colors.white)
-                            : null,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text('로그인 상태 유지',
-                          style: TextStyle(
-                              color: AppColors.textSec, fontSize: 12.5)),
-                    ]),
-                  ),
-                  const SizedBox(height: 32),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
-                        textStyle: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700),
-                        elevation: 0,
-                      ),
-                      onPressed: _isLoading ? null : _login,
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2.5),
-                            )
-                          : const Text('로그인'),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  Row(children: const [
-                    Expanded(
-                        child: Divider(color: AppColors.border, height: 1)),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Text('또는',
-                          style: TextStyle(
-                              color: AppColors.textTer, fontSize: 11)),
-                    ),
-                    Expanded(
-                        child: Divider(color: AppColors.border, height: 1)),
-                  ]),
-                  const SizedBox(height: 14),
-
-                  Row(children: [
-                    Expanded(
-                      child: _SocialButton(
-                        label: 'Apple로 계속하기',
-                        bg: Colors.white.withOpacity(0.08),
-                        fg: AppColors.textTer,
-                        onTap: null,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _SocialButton(
-                        label: 'Google로 계속하기',
-                        bg: AppColors.bgElev.withOpacity(0.5),
-                        fg: AppColors.textTer,
-                        onTap: null,
-                      ),
-                    ),
-                  ]),
-                  const SizedBox(height: 22),
-
-                  Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('아직 계정이 없으신가요? ',
+                        const SizedBox(height: 18),
+                        RichText(
+                          text: const TextSpan(
                             style: TextStyle(
-                                color: AppColors.textSec, fontSize: 12.5)),
-                        GestureDetector(
-                          onTap: () => openExternalUrl('https://lms.glotos.com/auth/join/terms'),
-                          child: const Text('가입하기',
-                              style: TextStyle(
-                                color: AppColors.accent,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                              )),
+                              color: AppColors.text,
+                              fontSize: 30,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.8,
+                              height: 1.18,
+                            ),
+                            children: [
+                              TextSpan(text: '말하고, 듣고,\n'),
+                              TextSpan(
+                                text: '매일 늘어나는',
+                                style: TextStyle(color: AppColors.accent),
+                              ),
+                              TextSpan(text: ' 영어'),
+                            ],
+                          ),
                         ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'AI 튜터와의 대화 · 발음 교정 · 맞춤 단어 학습을 한 곳에서.',
+                          style: TextStyle(
+                              color: AppColors.textSec, fontSize: 13.5, height: 1.55),
+                        ),
+                        const SizedBox(height: 28),
+
+                        // ID field
+                        const _Label('ID'),
+                        _fieldWithGlow(
+                          focused: _idFocus.hasFocus,
+                          child: TextField(
+                            controller: _idController,
+                            focusNode: _idFocus,
+                            style: const TextStyle(color: AppColors.text, fontSize: 15),
+                            decoration: _dec('아이디를 입력하세요'),
+                            onSubmitted: (_) => _pwFocus.requestFocus(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // PW field
+                        Row(children: [
+                          const _Label('PASSWORD'),
+                          const Spacer(),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: GestureDetector(
+                              onTap: () {},
+                              child: const Text('비밀번호 찾기',
+                                  style: TextStyle(
+                                      color: AppColors.accent, fontSize: 11)),
+                            ),
+                          ),
+                        ]),
+                        _fieldWithGlow(
+                          focused: _pwFocus.hasFocus,
+                          child: TextField(
+                            controller: _pwController,
+                            focusNode: _pwFocus,
+                            obscureText: _obscurePw,
+                            style: const TextStyle(color: AppColors.text, fontSize: 15),
+                            decoration: _dec(
+                              '••••••••',
+                              suffix: IconButton(
+                                icon: Icon(
+                                  _obscurePw ? Icons.visibility_off : Icons.visibility,
+                                  color: AppColors.textSec,
+                                  size: 18,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _obscurePw = !_obscurePw),
+                              ),
+                            ),
+                            onSubmitted: (_) {
+                              if (!_isLoading) _login();
+                            },
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () => setState(() => _rememberMe = !_rememberMe),
+                          child: Row(children: [
+                            Container(
+                              width: 18,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                color: _rememberMe
+                                    ? AppColors.accent
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(
+                                  color: _rememberMe
+                                      ? AppColors.accent
+                                      : AppColors.border,
+                                ),
+                              ),
+                              child: _rememberMe
+                                  ? const Icon(Icons.check,
+                                      size: 13, color: Colors.white)
+                                  : null,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text('로그인 상태 유지',
+                                style: TextStyle(
+                                    color: AppColors.textSec, fontSize: 12.5)),
+                          ]),
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // CTA
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14)),
+                              textStyle: const TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.w700),
+                              elevation: 0,
+                            ).copyWith(
+                              shadowColor: WidgetStatePropertyAll(
+                                  AppColors.accent.withOpacity(0.27)),
+                              elevation: const WidgetStatePropertyAll(12),
+                            ),
+                            onPressed: _isLoading ? null : _login,
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2.5),
+                                  )
+                                : const Text('로그인'),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // divider
+                        Row(children: const [
+                          Expanded(
+                              child: Divider(color: AppColors.border, height: 1)),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10),
+                            child: Text('또는',
+                                style: TextStyle(
+                                    color: AppColors.textTer, fontSize: 11)),
+                          ),
+                          Expanded(
+                              child: Divider(color: AppColors.border, height: 1)),
+                        ]),
+                        const SizedBox(height: 14),
+
+                        // social buttons (disabled)
+                        Row(children: [
+                          Expanded(
+                            child: _SocialButton(
+                              label: 'Apple로 계속하기',
+                              bg: Colors.white.withOpacity(0.08),
+                              fg: AppColors.textTer,
+                              onTap: null,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _SocialButton(
+                              label: 'Google로 계속하기',
+                              bg: AppColors.bgElev.withOpacity(0.5),
+                              fg: AppColors.textTer,
+                              onTap: null,
+                            ),
+                          ),
+                        ]),
+                        const SizedBox(height: 22),
+
+                        // signup link
+                        Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('아직 계정이 없으신가요? ',
+                                  style: TextStyle(
+                                      color: AppColors.textSec, fontSize: 12.5)),
+                              GestureDetector(
+                                onTap: () => openExternalUrl(
+                                    'https://lms.glotos.com/auth/join/terms'),
+                                child: const Text('가입하기',
+                                    style: TextStyle(
+                                      color: AppColors.accent,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                    )),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 28),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

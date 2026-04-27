@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/login_page.dart';
 
 // Design tokens — from hifi-mocks.jsx
@@ -155,24 +156,24 @@ class IntroPage extends StatelessWidget {
               child: const Text('무료로 시작하기'),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-              );
+            onTap: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('skip_intro', true);
+              if (context.mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
+              }
             },
-            child: RichText(
-              textAlign: TextAlign.center,
-              text: const TextSpan(
-                style: TextStyle(fontSize: 12, color: _textSec),
-                children: [
-                  TextSpan(text: '이미 계정이 있으신가요? '),
-                  TextSpan(
-                      text: '로그인',
-                      style: TextStyle(
-                          color: _accent, fontWeight: FontWeight.w500)),
-                ],
+            child: const Text(
+              '다시 보지 않기',
+              style: TextStyle(
+                fontSize: 15.5,
+                color: Color(0x59FFFFFF),
+                decoration: TextDecoration.underline,
+                decorationColor: Color(0x40FFFFFF),
               ),
             ),
           ),

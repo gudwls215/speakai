@@ -42,8 +42,8 @@ class MyApp extends StatelessWidget {
     print('Access Token: $accessToken');
     
     if (accessToken == null) {
-      print('No valid access token found, redirecting to intro page');
-      return 'intro'; // 토큰이 없거나 갱신 실패 시 인트로 페이지로
+      final skipIntro = prefs.getBool('skip_intro') ?? false;
+      return skipIntro ? 'login' : 'intro';
     }
     
     // 온보딩 상태 체크
@@ -92,9 +92,11 @@ class MyApp extends StatelessWidget {
           case 'onboarding':
             initialPage = const OnboardingPage();
             break;
+          case 'login':
+            initialPage = const LoginPage();
+            break;
           case 'intro':
           default:
-            print('Navigating to Intro Page');
             initialPage = const IntroPage();
             break;
         }
