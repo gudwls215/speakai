@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/login_page.dart';
 
@@ -73,33 +74,72 @@ class IntroPage extends StatelessWidget {
                       ),
                     ),
                     child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _BrandMark(),
-                          SizedBox(height: 28),
-                          Text(
-                            '당신을\n말하게 하는\n영어 앱',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: _text,
-                              fontSize: 42,
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
-                              letterSpacing: -1.0,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 40),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            _BrandMark(),
+                            SizedBox(height: 24),
+                            Text(
+                              'tutorGlotos',
+                              style: TextStyle(
+                                color: _accent,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2.0,
+                                fontFamily: 'monospace',
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 14),
-                          Text(
-                            'AI 튜터와 대화하며 발음 · 표현 · 어휘를\n한 번에. 내 레벨에 맞춘 학습.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: _textSec,
-                              fontSize: 14,
-                              height: 1.6,
+                            SizedBox(height: 12),
+                            Text(
+                              '해외 연수\n예정자들을 위한\n영어앱',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _text,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                height: 1.25,
+                                letterSpacing: -0.5,
+                              ),
                             ),
-                          ),
-                        ],
+                            SizedBox(height: 20),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _Badge('AI 튜터'),
+                                _Badge('발음 교정'),
+                                _Badge('맞춤 단어'),
+                                _Badge('상황별 대화'),
+                                _Badge('레벨 진단'),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _Badge('LMS 연동'),
+                                _Badge('모바일'),
+                              ],
+                            ),
+                            SizedBox(height: 28),
+                            _DesktopCtaButton(),
+                            // SizedBox(height: 32),
+                            // Text(
+                            //   'LMS 연동 · 모바일',
+                            //   style: TextStyle(
+                            //     color: _textSec,
+                            //     fontSize: 12,
+                            //     height: 1.5,
+                            //   ),
+                            // ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -148,7 +188,20 @@ class IntroPage extends StatelessWidget {
                   color: _accent,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              SvgPicture.string(
+                '''<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M100 22c-42 0-72 25-72 56 0 19 12 36 30 47l-8 24c-1 3 2 5 5 4l28-15c5 1 11 2 17 2 42 0 72-25 72-56s-30-62-72-62z"
+                    fill="white" stroke="#10b981" stroke-width="6"/>
+                  <ellipse cx="78" cy="78" rx="9" ry="13" fill="#10b981"/>
+                  <ellipse cx="122" cy="78" rx="9" ry="13" fill="#10b981"/>
+                  <circle cx="80" cy="74" r="3" fill="#fff"/>
+                  <circle cx="124" cy="74" r="3" fill="#fff"/>
+                </svg>''',
+                width: 96,
+                height: 96,
+              ),
+              const SizedBox(height: 20),
               RichText(
                 text: const TextSpan(
                   style: TextStyle(
@@ -209,7 +262,7 @@ class IntroPage extends StatelessWidget {
                   MaterialPageRoute(builder: (_) => const LoginPage()),
                 );
               },
-              child: const Text('무료로 시작하기'),
+              child: const Text('시작하기'),
             ),
           ),
           const SizedBox(height: 12),
@@ -239,31 +292,74 @@ class IntroPage extends StatelessWidget {
   }
 }
 
+class _DesktopCtaButton extends StatelessWidget {
+  const _DesktopCtaButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 180,
+      height: 44,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _accent,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+        ).copyWith(
+          elevation: WidgetStateProperty.all(8),
+          shadowColor: WidgetStateProperty.all(const Color(0x4410B981)),
+        ),
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        ),
+        child: const Text('시작하기'),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  const _Badge(this.label);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: _accentSoft,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: _accent.withOpacity(0.3)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: _accent,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+}
+
 // 데스크탑 좌측 브랜드 마크
 class _BrandMark extends StatelessWidget {
   const _BrandMark();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_accent, Color(0xFF047857)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _accent.withOpacity(0.35),
-            blurRadius: 40,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: const Icon(Icons.graphic_eq, color: Colors.white, size: 40),
+    return SvgPicture.string(
+      '''<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <path d="M100 22c-42 0-72 25-72 56 0 19 12 36 30 47l-8 24c-1 3 2 5 5 4l28-15c5 1 11 2 17 2 42 0 72-25 72-56s-30-62-72-62z"
+          fill="white" stroke="#10b981" stroke-width="6"/>
+        <ellipse cx="78" cy="78" rx="9" ry="13" fill="#10b981"/>
+        <ellipse cx="122" cy="78" rx="9" ry="13" fill="#10b981"/>
+        <circle cx="80" cy="74" r="3" fill="#fff"/>
+        <circle cx="124" cy="74" r="3" fill="#fff"/>
+      </svg>''',
+      width: 72,
+      height: 72,
     );
   }
 }
