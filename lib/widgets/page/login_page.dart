@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speakai/widgets/page/onboarding_page.dart';
 import 'package:speakai/config.dart';
+import 'package:speakai/utils/url_helper.dart';
 import 'app_colors.dart';
 
 class LoginPage extends StatefulWidget {
@@ -339,18 +340,18 @@ class _LoginPageState extends State<LoginPage> {
                     Expanded(
                       child: _SocialButton(
                         label: 'Apple로 계속하기',
-                        bg: Colors.white,
-                        fg: Colors.black,
-                        onTap: () {},
+                        bg: Colors.white.withOpacity(0.08),
+                        fg: AppColors.textTer,
+                        onTap: null,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: _SocialButton(
                         label: 'Google로 계속하기',
-                        bg: AppColors.bgElev,
-                        fg: AppColors.text,
-                        onTap: () {},
+                        bg: AppColors.bgElev.withOpacity(0.5),
+                        fg: AppColors.textTer,
+                        onTap: null,
                       ),
                     ),
                   ]),
@@ -364,7 +365,7 @@ class _LoginPageState extends State<LoginPage> {
                             style: TextStyle(
                                 color: AppColors.textSec, fontSize: 12.5)),
                         GestureDetector(
-                          onTap: () {},
+                          onTap: () => openExternalUrl('https://lms.glotos.com/auth/join/terms'),
                           child: const Text('가입하기',
                               style: TextStyle(
                                 color: AppColors.accent,
@@ -406,7 +407,7 @@ class _Label extends StatelessWidget {
 class _SocialButton extends StatelessWidget {
   final String label;
   final Color bg, fg;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _SocialButton({
     required this.label,
@@ -422,10 +423,10 @@ class _SocialButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: bg,
             foregroundColor: fg,
+            disabledBackgroundColor: bg,
+            disabledForegroundColor: fg,
             elevation: 0,
-            side: bg == AppColors.bgElev
-                ? const BorderSide(color: AppColors.border)
-                : BorderSide.none,
+            side: const BorderSide(color: AppColors.border),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
             textStyle:
