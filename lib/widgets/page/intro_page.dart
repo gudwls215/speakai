@@ -20,45 +20,101 @@ class IntroPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHero(),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Column(
-                  children: [
-                    _ChatbotCard(),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: const [
-                        Expanded(child: _PronCard()),
-                        SizedBox(width: 10),
-                        Expanded(child: _VocabCard()),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    _RoleplayCard(),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: const [
-                        Expanded(child: _LevelCard()),
-                        SizedBox(width: 10),
-                        Expanded(child: _PersonalizedCard()),
-                      ],
-                    ),
+    final isDesktop = MediaQuery.sizeOf(context).width >= 700;
+    final content = SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHero(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Column(
+              children: [
+                _ChatbotCard(),
+                const SizedBox(height: 10),
+                Row(
+                  children: const [
+                    Expanded(child: _PronCard()),
+                    SizedBox(width: 10),
+                    Expanded(child: _VocabCard()),
                   ],
                 ),
-              ),
-              _buildCta(context),
-            ],
+                const SizedBox(height: 10),
+                _RoleplayCard(),
+                const SizedBox(height: 10),
+                Row(
+                  children: const [
+                    Expanded(child: _LevelCard()),
+                    SizedBox(width: 10),
+                    Expanded(child: _PersonalizedCard()),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
+          _buildCta(context),
+        ],
       ),
+    );
+
+    return Scaffold(
+      backgroundColor: _bg,
+      body: isDesktop
+          ? Row(
+              children: [
+                // 좌측 브랜드 패널
+                Expanded(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: RadialGradient(
+                        center: Alignment(0, -0.5),
+                        radius: 1.2,
+                        colors: [Color(0x5010B981), Color(0x0010B981)],
+                      ),
+                    ),
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _BrandMark(),
+                          SizedBox(height: 28),
+                          Text(
+                            '당신을\n말하게 하는\n영어 앱',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _text,
+                              fontSize: 42,
+                              fontWeight: FontWeight.w800,
+                              height: 1.15,
+                              letterSpacing: -1.0,
+                            ),
+                          ),
+                          SizedBox(height: 14),
+                          Text(
+                            'AI 튜터와 대화하며 발음 · 표현 · 어휘를\n한 번에. 내 레벨에 맞춘 학습.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: _textSec,
+                              fontSize: 14,
+                              height: 1.6,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // 우측 카드 리스트
+                Container(
+                  width: 420,
+                  decoration: const BoxDecoration(
+                    border: Border(left: BorderSide(color: _border)),
+                  ),
+                  child: SafeArea(child: content),
+                ),
+              ],
+            )
+          : SafeArea(child: content),
     );
   }
 
@@ -179,6 +235,35 @@ class IntroPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// 데스크탑 좌측 브랜드 마크
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_accent, Color(0xFF047857)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _accent.withOpacity(0.35),
+            blurRadius: 40,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: const Icon(Icons.graphic_eq, color: Colors.white, size: 40),
     );
   }
 }

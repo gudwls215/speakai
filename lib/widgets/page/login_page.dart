@@ -154,12 +154,13 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 700;
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Stack(
         children: [
-          Positioned(
-            top: 0, left: 0, right: 0, height: 400,
+          // 전체 화면 그라디언트 (데스크탑/모바일 공통)
+          Positioned.fill(
             child: IgnorePointer(
               child: Container(
                 decoration: const BoxDecoration(
@@ -173,46 +174,80 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
           ),
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (_) => const IntroPage()),
-                    ),
-                    child: Container(
-                      height: 34,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.bgElev,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.arrow_back_ios_new,
-                              size: 11, color: AppColors.textSec),
-                          SizedBox(width: 6),
-                          Text('인트로 보기',
-                              style: TextStyle(
-                                  color: AppColors.textSec,
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                  ),
+          if (isDesktop)
+            Center(
+              child: Container(
+                width: 460,
+                margin: const EdgeInsets.symmetric(vertical: 32),
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height - 64,
                 ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                decoration: BoxDecoration(
+                  color: AppColors.bgElev.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 60,
+                      offset: const Offset(0, 24),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: _buildContent(context),
+                ),
+              ),
+            )
+          else
+            _buildContent(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const IntroPage()),
+              ),
+              child: Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.bgElev,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.arrow_back_ios_new,
+                        size: 11, color: AppColors.textSec),
+                    SizedBox(width: 6),
+                    Text('인트로 보기',
+                        style: TextStyle(
+                            color: AppColors.textSec,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                         // brand mark — speech bubble character
                         SizedBox(
                           width: 116,
@@ -455,12 +490,9 @@ class _LoginPageState extends State<LoginPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 28),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                  const SizedBox(height: 28),
+                ],
+              ),
             ),
           ),
         ],
